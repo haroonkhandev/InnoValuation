@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+
+# OS / editor
+.DS_Store
+
+# Agent notes that `next dev` writes into frontend/
+frontend/*.md
+!frontend/README.md

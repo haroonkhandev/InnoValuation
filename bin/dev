@@ -1,0 +1,43 @@
+#!/bin/bash
+# Run the API (uvicorn --reload), the Celery worker and the Next.js dev server.
+# Ctrl+C stops all three.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# Next.js needs Node 20+. An old node (for example nvm's ancient default) fails with a
+# cryptic SyntaxError, so refuse it here with a clear message instead.
+node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+if [ "$node_major" -lt 20 ]; then
+  echo "bin/dev: Node 20 or newer is required, found $(node -v 2>/dev/null || echo none)." >&2
+  echo "bin/dev: check which node is first on your PATH (mise, nvm, system)." >&2
+  exit 1
+fi
+
+# The backend defaults to ENVIRONMENT=production so a deploy can never skip the secret
+# key check. Local runs use development unless the shell or .env already sets it.
+if [ -z "${ENVIRONMENT:-}" ] && ! grep -qE '^ENVIRONMENT=' .env 2>/dev/null; then
+  export ENVIRONMENT=development
+fi
+
+docker compose up -d --wait
+
+# The backend reads .env itself (pydantic-settings). The frontend only needs the API URL,
+# so pass that one value through instead of shell-sourcing the whole file.
+if [ -f .env ]; then
+  api_url=$(grep -E '^NEXT_PUBLIC_API_BASE_URL=' .env | tail -1 | cut -d= -f2- | tr -d '"' || true)
+  if [ -n "${api_url:-}" ]; then export NEXT_PUBLIC_API_BASE_URL="$api_url"; fi
+fi
+
+# Kill the whole process group on exit so reloaders and child servers stop too.
+trap 'trap - EXIT INT TERM; kill 0 2>/dev/null' EXIT INT TERM
+
+(cd backend && uv run uvicorn app.main:app --reload --port 8000) &
+# Celery has no reload of its own, so watchfiles restarts the worker when backend Python
+# code changes, the way uvicorn --reload does for the API.
+(cd backend && uv run watchfiles --filter python --target-type command \
+  "celery -A app.jobs.celery_app worker --loglevel=info" app) &
+(cd frontend && npm run dev) &
+
+echo "API http://localhost:8000/api/v1/health  |  Web http://localhost:3000  |  Mail http://localhost:8025"
+wait -n

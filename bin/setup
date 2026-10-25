@@ -1,0 +1,40 @@
+#!/bin/bash
+# Prepare a fresh clone: env file, services, backend venv, frontend deps, migrations.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# The backend defaults to ENVIRONMENT=production so a deploy can never skip the secret
+# key check. Local runs use development unless the shell or .env already sets it.
+if [ -z "${ENVIRONMENT:-}" ] && ! grep -qE '^ENVIRONMENT=' .env 2>/dev/null; then
+  export ENVIRONMENT=development
+fi
+
+for tool in uv npm docker; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "Missing required tool: $tool" >&2; exit 1; }
+done
+
+echo "Installing git hooks (.githooks: pre-commit, commit-msg, pre-push)..."
+git config core.hooksPath .githooks
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "Created .env from .env.example"
+fi
+
+echo "Starting Postgres and Redis..."
+docker compose up -d --wait
+
+echo "Installing backend (uv)..."
+(cd backend && uv sync --locked)
+
+echo "Running migrations..."
+(cd backend && uv run alembic upgrade head)
+
+# Dimensions are loaded from docs/methodology/dimensions.yml at import (Phase 1),
+# so there is nothing to seed into the database yet.
+
+echo "Installing frontend (npm)..."
+(cd frontend && npm ci)
+
+echo "Setup done. Run bin/dev to start everything."
