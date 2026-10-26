@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
+import { Bar } from "@/components/ui/Bar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/Card";
 import { Loading } from "@/components/ui/Loading";
+import { StickyBar } from "@/components/ui/StickyBar";
 import { ApiError } from "@/lib/api/client";
 import {
   finaliseAssessment,
@@ -19,6 +21,9 @@ import {
 } from "@/lib/api/readiness";
 import type { ConsensusOut, QuestionConsensusOut, QuestionSetOut } from "@/lib/api/types";
 import { useSubmit } from "@/lib/forms";
+
+import { ScaleChoice } from "./ScaleChoice";
+import { saveFailureMessage } from "./status";
 
 type State =
   | { kind: "loading" }
@@ -33,6 +38,10 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [save, setSave] = useState<SaveState>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Questions whose last change (agreed answer or note) failed to save. A later save that
+  // works does not clear them: each stays marked until it is changed again.
+  const [failed, setFailed] = useState<string[]>([]);
   // Saves run in order and the chain never rejects. The server's answer replaces the
   // screen only when no save is left in the queue, so quicker edits are never wiped.
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -77,7 +86,8 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
     setState((prev) => (prev.kind === "ready" ? { ...prev, consensus } : prev));
   }
 
-  function persist(changes: Parameters<typeof saveConsensus>[1]) {
+  function persist(questionId: string, changes: Parameters<typeof saveConsensus>[1]) {
+    setFailed((prev) => prev.filter((id) => id !== questionId));
     setSave("saving");
     pending.current += 1;
     queue.current = queue.current
@@ -90,9 +100,11 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
             showServer(updated);
           }
         },
-        async () => {
+        async (err: unknown) => {
           pending.current -= 1;
           setSave("error");
+          setSaveError(saveFailureMessage(err));
+          setFailed((prev) => (prev.includes(questionId) ? prev : [...prev, questionId]));
           // Show what the server holds, so an unsaved answer is neither shown nor counted.
           if (pending.current === 0) {
             try {
@@ -119,7 +131,7 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
           }
         : prev,
     );
-    persist({ answers: { [questionId]: value } });
+    persist(questionId, { answers: { [questionId]: value } });
   }
 
   const agreedCount = consensus.questions.filter((q) => q.agreed !== null).length;
@@ -141,19 +153,23 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
         Questions where answers are far apart are marked for discussion.
       </Alert>
 
-      <div className="sticky top-(--app-header-h) z-10 rounded-2xl border border-neutral-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+      <StickyBar>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="text-sm font-medium text-neutral-900">
+          <span className="text-sm font-medium text-neutral-900 tabular-nums">
             {agreedCount} of {consensus.question_count} agreed
           </span>
           <span
             role="status"
+            aria-label="Save status"
             aria-live="polite"
             className={`text-xs ${save === "error" ? "text-red-700" : "text-neutral-500"}`}
           >
             {save === "saving" && "Saving..."}
-            {save === "saved" && "Saved"}
-            {save === "error" && "Not saved. Check your connection and choose again."}
+            {save === "saved" && failed.length === 0 && "Saved"}
+            {save === "saved" &&
+              failed.length > 0 &&
+              `Saved, but ${unsavedCount(failed.length)}. Change again where marked.`}
+            {save === "error" && saveError}
           </span>
           <FinaliseControl
             assessmentId={assessmentId}
@@ -162,24 +178,22 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
             onFinalised={() => router.push(`/readiness/${assessmentId}/result`)}
           />
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100" aria-hidden="true">
-          <div
-            className="h-full rounded-full bg-accent transition-all"
-            style={{ width: `${(agreedCount / consensus.question_count) * 100}%` }}
-          />
-        </div>
-      </div>
+        <Bar value={agreedCount} maximum={consensus.question_count} tone="accent" />
+      </StickyBar>
 
       {questions.dimensions.map((dimension) => (
         <section
           key={dimension.key}
           aria-labelledby={`${dimension.key}-title`}
-          className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+          className="overflow-hidden rounded-lg border border-neutral-200 bg-white"
         >
-          <h2 id={`${dimension.key}-title`} className="text-base font-semibold text-neutral-900">
-            {dimension.order}. {dimension.name}
-          </h2>
-          <ol className="mt-4 space-y-6">
+          <div className="border-b border-neutral-200 px-5 py-4">
+            <h2 id={`${dimension.key}-title`} className="text-sm font-semibold text-neutral-900">
+              <span className="mr-2 text-neutral-400 tabular-nums">{dimension.order}.</span>
+              {dimension.name}
+            </h2>
+          </div>
+          <ol className="divide-y divide-neutral-100">
             {dimension.questions.map((question) => {
               const row = byQuestion.get(question.id);
               if (!row) return null;
@@ -189,8 +203,11 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
                   text={question.text}
                   row={row}
                   scale={scale}
+                  failed={failed.includes(question.id)}
                   onAgree={(value) => agree(question.id, value)}
-                  onNote={(note) => persist({ notes: { [question.id]: note || null } })}
+                  onNote={(note) =>
+                    persist(question.id, { notes: { [question.id]: note || null } })
+                  }
                 />
               );
             })}
@@ -198,7 +215,7 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
         </section>
       ))}
       <p className="text-sm">
-        <Link href="/readiness" className="underline">
+        <Link href="/readiness" className="font-medium text-primary hover:underline">
           Back to assessments
         </Link>
       </p>
@@ -206,71 +223,67 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
   );
 }
 
+function unsavedCount(n: number): string {
+  return n === 1 ? "1 change was not saved" : `${n} changes were not saved`;
+}
+
 function ConsensusRow({
   text,
   row,
   scale,
+  failed,
   onAgree,
   onNote,
 }: {
   text: string;
   row: QuestionConsensusOut;
   scale: number[];
+  failed: boolean;
   onAgree: (value: number) => void;
   onNote: (note: string) => void;
 }) {
   const [note, setNote] = useState(row.note ?? "");
 
   return (
-    <li className={row.wide_spread ? "rounded-xl border-l-4 border-amber-400 pl-4" : undefined}>
+    <li
+      className={`px-5 py-4 ${row.wide_spread ? "bg-amber-50/40 shadow-[inset_3px_0_0_var(--color-amber-400)]" : ""}`}
+    >
       <fieldset>
         <legend className="text-sm text-neutral-900">{text}</legend>
+        {failed && (
+          <p className="mt-1 text-xs font-medium text-red-700">
+            Not saved. Set the agreed answer or note again.
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600">
-          <span>
+          <span className="tabular-nums">
             {row.answers.map((a) => (
               <span key={a.user_id} className="mr-3 whitespace-nowrap">
-                {a.name}: <strong className="text-neutral-900">{a.answer}</strong>
+                {a.name}: <strong className="font-semibold text-neutral-900">{a.answer}</strong>
               </span>
             ))}
           </span>
           {row.mean !== null && (
-            <span>
-              Average <strong className="text-neutral-900">{row.mean}</strong>
+            <span className="tabular-nums">
+              Average <strong className="font-semibold text-neutral-900">{row.mean}</strong>
             </span>
           )}
           {row.spread !== null && (
-            <span>
-              Spread <strong className="text-neutral-900">{row.spread}</strong>
+            <span className="tabular-nums">
+              Spread <strong className="font-semibold text-neutral-900">{row.spread}</strong>
             </span>
           )}
           {row.wide_spread && <Badge tone="amber">Discuss: answers differ</Badge>}
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className="text-xs font-medium text-neutral-700">Agreed answer</span>
-          {scale.map((value) => {
-            const chosen = row.agreed === value;
-            return (
-              <label
-                key={value}
-                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
-                  chosen
-                    ? "border-primary bg-primary text-white"
-                    : "border-neutral-300 bg-white text-neutral-700 hover:border-primary"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name={`agreed-${row.question_id}`}
-                  value={value}
-                  checked={chosen}
-                  onChange={() => onAgree(value)}
-                  aria-label={`Agreed answer ${value}`}
-                  className="sr-only"
-                />
-                {value}
-              </label>
-            );
-          })}
+          <ScaleChoice
+            name={`agreed-${row.question_id}`}
+            scale={scale}
+            value={row.agreed}
+            onChange={onAgree}
+            ariaLabel={(value) => `Agreed answer ${value}`}
+          />
         </div>
       </fieldset>
       <label className="mt-3 block">
@@ -284,7 +297,7 @@ function ConsensusRow({
           onBlur={() => {
             if (note.trim() !== (row.note ?? "")) onNote(note.trim());
           }}
-          className="block w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-2 focus:-outline-offset-1 focus:outline-accent"
+          className="block h-8 w-full max-w-xl rounded-md border border-neutral-300 bg-white px-2.5 text-[13px] text-neutral-900 shadow-xs placeholder:text-neutral-400 focus:outline-2 focus:-outline-offset-1 focus:outline-primary"
         />
       </label>
     </li>

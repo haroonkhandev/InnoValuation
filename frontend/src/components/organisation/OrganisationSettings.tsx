@@ -31,18 +31,23 @@ export function OrganisationSettings() {
   useEffect(() => {
     if (!activeOrgId) return;
     let cancelled = false;
-    getOrganisation()
-      .then((org) => {
+    async function load() {
+      // Back to loading on a switch, so the previous organisation's form is never shown
+      // (or saved) against the new one.
+      setState({ kind: "loading" });
+      try {
+        const org = await getOrganisation();
         if (!cancelled) setState({ kind: "ready", org });
-      })
-      .catch((err: unknown) => {
+      } catch (err) {
         if (!cancelled) {
           setState({
             kind: "error",
             message: err instanceof ApiError ? err.message : "Something went wrong.",
           });
         }
-      });
+      }
+    }
+    void load();
     return () => {
       cancelled = true;
     };
@@ -54,7 +59,7 @@ export function OrganisationSettings() {
         <PageHeader title="Organisation settings" />
         <Alert tone="info">
           Choose an organisation in the switcher above, or{" "}
-          <Link href="/organisations/new" className="underline">
+          <Link href="/organisations/new" className="font-medium text-primary hover:underline">
             create one
           </Link>
           .
@@ -87,12 +92,14 @@ export function OrganisationSettings() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="max-w-2xl space-y-6">
       <PageHeader
         title="Organisation settings"
         description="The profile and currency of the active organisation."
       />
       <SettingsForm
+        // The fields are seeded from the organisation once, so a new organisation gets a new form.
+        key={org.id}
         org={org}
         onSaved={(saved) =>
           setState((prev) => (prev.kind === "ready" ? { ...prev, org: saved } : prev))
@@ -241,9 +248,11 @@ function SettingsForm({
           onChange={setCurrency}
           hint="Investments and Value for Money are shown in this currency."
         />
-        <Button type="submit" busy={busy}>
-          Save changes
-        </Button>
+        <div className="flex justify-end border-t border-neutral-200 pt-4">
+          <Button type="submit" busy={busy}>
+            Save changes
+          </Button>
+        </div>
       </form>
     </Card>
   );

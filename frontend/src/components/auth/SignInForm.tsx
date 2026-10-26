@@ -11,13 +11,7 @@ import { TextField } from "@/components/ui/fields";
 import { resendVerification, signIn } from "@/lib/api/auth";
 import type { MeOut } from "@/lib/api/types";
 import { useSubmit } from "@/lib/forms";
-
-/** A same-site path from ?next=, or null. Rejects absolute and scheme-relative URLs;
- * backslashes count as slashes because URL parsers normalise them. */
-function safeNext(): string | null {
-  const next = new URLSearchParams(window.location.search).get("next");
-  return next && /^\/[^/\\]/.test(next) ? next : null;
-}
+import { safeNextFromLocation } from "@/lib/next-param";
 
 function landingPage(me: MeOut): string {
   if (me.memberships.length > 0) return "/dashboard";
@@ -46,7 +40,7 @@ export function SignInForm() {
     }
     const me = await run(() => signIn(email, password));
     // The hash (e.g. an invitation token) never reaches the server; carry it along.
-    if (me) router.push((safeNext() ?? landingPage(me)) + window.location.hash);
+    if (me) router.push((safeNextFromLocation() ?? landingPage(me)) + window.location.hash);
   }
 
   async function handleResend() {
@@ -56,7 +50,7 @@ export function SignInForm() {
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
-      <h1 className="text-xl font-semibold text-neutral-900">Sign in</h1>
+      <h1 className="text-lg font-semibold text-neutral-900">Sign in</h1>
       {error && (
         <Alert tone="error">
           {error.message}
@@ -99,11 +93,11 @@ export function SignInForm() {
       <Button type="submit" busy={busy} className="w-full">
         Sign in
       </Button>
-      <div className="flex justify-between text-sm">
-        <Link href="/forgot-password" className="underline">
+      <div className="flex justify-between gap-4 text-sm">
+        <Link href="/forgot-password" className="font-medium text-primary hover:underline">
           Forgot your password?
         </Link>
-        <Link href="/sign-up" className="underline">
+        <Link href="/sign-up" className="font-medium text-primary hover:underline">
           Create an account
         </Link>
       </div>
