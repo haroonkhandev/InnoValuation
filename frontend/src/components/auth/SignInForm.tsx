@@ -7,7 +7,7 @@ import type { FormEvent } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/fields";
+import { AuthInput } from "@/components/auth/AuthInput";
 import { resendVerification, signIn } from "@/lib/api/auth";
 import type { MeOut } from "@/lib/api/types";
 import { useSubmit } from "@/lib/forms";
@@ -54,59 +54,142 @@ export function SignInForm() {
     if (sent) setResent(true);
   }
 
+
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
-      <h1 className="text-xl font-semibold text-neutral-900">Sign in</h1>
+    <form
+      onSubmit={(event) => void handleSubmit(event)}
+      className="space-y-5"
+      noValidate
+    >
       {error && (
         <Alert tone="error">
           {error.message}
+
           {error.code === "email_not_verified" && (
-            <span className="mt-2 block">
-              <Button variant="secondary" busy={busy} onClick={() => void handleResend()}>
+            <span className="mt-3 block">
+              <Button
+                variant="secondary"
+                busy={busy}
+                onClick={() => void handleResend()}
+              >
                 Send the confirmation email again
               </Button>
             </span>
           )}
         </Alert>
       )}
-      {resent && <Alert tone="success">Check your inbox for the confirmation email.</Alert>}
-      <TextField
-        label="Email"
+
+      {resent && (
+        <Alert tone="success">
+          Check your inbox for the confirmation email.
+        </Alert>
+      )}
+
+      <AuthInput
+        label="Email address"
         type="email"
         name="email"
         autoComplete="email"
+        placeholder="you@company.com"
         required
         error={fieldErrors.email}
         value={email}
-        onChange={(e) => {
-          setEmail(e.target.value);
-          setFieldErrors((prev) => ({ ...prev, email: undefined }));
+        onChange={(event) => {
+          setEmail(event.target.value);
+          setFieldErrors((previous) => ({
+            ...previous,
+            email: undefined,
+          }));
         }}
       />
-      <TextField
-        label="Password"
-        type="password"
-        name="password"
-        autoComplete="current-password"
-        required
-        error={fieldErrors.password}
-        value={password}
-        onChange={(e) => {
-          setPassword(e.target.value);
-          setFieldErrors((prev) => ({ ...prev, password: undefined }));
-        }}
-      />
-      <Button type="submit" busy={busy} className="w-full">
-        Sign in
+
+      <div>
+        <AuthInput
+          label="Password"
+          type="password"
+          name="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          required
+          error={fieldErrors.password}
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setFieldErrors((previous) => ({
+              ...previous,
+              password: undefined,
+            }));
+          }}
+        />
+
+        <div className="mt-2 flex justify-end">
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-[#1285B5] transition-colors hover:text-[#0DAD94] hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
+          >
+            Forgot password?
+          </Link>
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        busy={busy}
+        className="
+        group relative h-12 w-full
+        !rounded-xl
+        !bg-gradient-to-r
+        !from-[#167FC4]
+        !via-[#0E9EAE]
+        !to-[#17B890]
+        !text-white
+        !shadow-[0_6px_20px_rgba(14,158,174,0.18)]
+        transition-all duration-300
+        hover:!brightness-105
+        hover:!shadow-[0_8px_24px_rgba(14,158,174,0.25)]
+        active:scale-[0.99]
+        motion-reduce:transform-none
+      "
+      >
+        {busy ? (
+          <span className="flex items-center gap-2">
+            <svg
+              className="size-4 animate-spin motion-reduce:animate-none"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+                stroke="currentColor"
+                strokeWidth="3"
+                className="opacity-25"
+              />
+              <path
+                d="M12 3a9 9 0 0 1 9 9"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </svg>
+            Signing in...
+          </span>
+        ) : (
+          <span>Sign in to workspace</span>
+        )}
       </Button>
-      <div className="flex justify-between text-sm">
-        <Link href="/forgot-password" className="underline">
-          Forgot your password?
-        </Link>
-        <Link href="/sign-up" className="underline">
+
+      <p className="pt-1 text-center text-sm text-slate-500">
+        New to InnoValuation?{" "}
+        <Link
+          href="/sign-up"
+          className="font-semibold text-[#1285B5] transition-colors hover:text-[#0DAD94] hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
+        >
           Create an account
         </Link>
-      </div>
+      </p>
     </form>
   );
 }

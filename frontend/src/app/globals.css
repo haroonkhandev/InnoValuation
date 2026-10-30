@@ -20,6 +20,8 @@
   --app-header-h: 4rem;
 }
 
+/* Tailwind v4 theme directive; it is not a standard CSS at-rule. */
+/* stylelint-disable at-rule-no-unknown */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
