@@ -31,8 +31,8 @@ def _names(db: Session, rows: list[DimensionWeights]) -> dict[uuid.UUID, str]:
 
 
 def _weights_out(db: Session, ctx: OrgContext) -> WeightsOut:
-    current = weights.current_weights(db, ctx.organisation_id)
     row = weights.latest(db, ctx.organisation_id)
+    current = weights.weights_of(row)
     names = _names(db, [row]) if row is not None else {}
     set_at: datetime | None = row.created_at if row is not None else None
     return WeightsOut(
@@ -84,7 +84,12 @@ def get_history(
             set_at=row.created_at,
             set_by_name=names.get(row.set_by_user_id) if row.set_by_user_id else None,
             custom=weights.is_custom(row.weights),
-            weights={str(k): str(v) for k, v in row.weights.items()},
+            # In book order: JSONB keeps its own key order.
+            weights={
+                key: str(row.weights[key])
+                for key in QUESTION_SET.dimension_keys
+                if key in row.weights
+            },
         )
         for row in rows
     ]

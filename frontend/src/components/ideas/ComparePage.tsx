@@ -12,6 +12,7 @@ import { Table, Td, Th } from "@/components/ui/Table";
 import { ApiError } from "@/lib/api/client";
 import { getAssessment, getIdea } from "@/lib/api/ideas";
 import type { IdeaOut, IqAssessmentOut } from "@/lib/api/types";
+import { downloadCsv } from "@/lib/csv";
 import { formatMoney } from "@/lib/money";
 
 interface Column {
@@ -41,17 +42,33 @@ export function ComparePage() {
     let cancelled = false;
     async function load() {
       try {
-        const ideas = await Promise.all(ids.map((id) => getIdea(id)));
-        const columns: Column[] = [];
+        const loaded = await Promise.allSettled(ids.map((id) => getIdea(id)));
         const skipped: string[] = [];
-        for (const idea of ideas) {
+        const unreadable = loaded.filter((r) => r.status === "rejected").length;
+        if (unreadable > 0) {
+          skipped.push(
+            unreadable === 1
+              ? "One idea could not be loaded"
+              : `${unreadable} ideas could not be loaded`,
+          );
+        }
+        const confirmed: { idea: IdeaOut; assessmentId: string }[] = [];
+        for (const result of loaded) {
+          if (result.status !== "fulfilled") continue;
+          const idea = result.value;
           const latest = idea.assessments.find((a) => a.status === "confirmed");
           if (!latest) {
             skipped.push(idea.title);
             continue;
           }
-          columns.push({ idea, result: await getAssessment(idea.id, latest.id) });
+          confirmed.push({ idea, assessmentId: latest.id });
         }
+        const columns: Column[] = await Promise.all(
+          confirmed.map(async ({ idea, assessmentId }) => ({
+            idea,
+            result: await getAssessment(idea.id, assessmentId),
+          })),
+        );
         if (!cancelled) setState({ kind: "ready", columns, skipped });
       } catch (err) {
         if (!cancelled) {
@@ -97,17 +114,10 @@ export function ComparePage() {
   const rows = buildRows(columns);
 
   function exportCsv() {
-    const lines = [
+    downloadCsv("innovaluation-ideas-comparison.csv", [
       ["", ...columns.map((c) => c.idea.title)],
       ...rows.map((r) => [r.label, ...r.cells]),
-    ].map((cells) => cells.map(csvCell).join(","));
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "innovaluation-ideas-comparison.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    ]);
   }
 
   return (
@@ -202,8 +212,4 @@ export function buildRows(columns: Column[]): Row[] {
     })),
   ];
   return rows;
-}
-
-function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }

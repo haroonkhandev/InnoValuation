@@ -186,6 +186,19 @@ def test_changing_organizational_agility_to_5_gives_iq_70_and_vfm_714_29(
     assert levels["product_evolution"] == "Invention"
     assert result["confirmed_by_name"] == "Mia Member"
     assert result["can_review"] is False
+    # Strengths: the dimensions above every priority (the highest priority scores 7).
+    assert [(s["key"], s["score"], s["level_name"]) for s in result["strengths"]] == [
+        ("product_evolution", 9, "Invention"),
+        ("customer_journey", 8, "Invention"),
+        ("value_creation_engine", 8, "Invention"),
+    ]
+    # The compass draws the confirmed scores, in book order, with the engine's level each.
+    compass = result["compass"]
+    assert compass["scale"] == "iq"
+    assert [s["key"] for s in compass["segments"]] == list(QUESTION_SET.dimension_keys)
+    agility = next(s for s in compass["segments"] if s["key"] == "organizational_agility")
+    assert (agility["score"], agility["maximum"], agility["priority_rank"]) == (5, 10, 1)
+    assert agility["level"] == {"key": "innovation", "name": "Innovation", "order": 2}
 
     # The list shows the headline numbers to everyone in the organisation.
     _as(client, owner, org)
@@ -200,7 +213,21 @@ def test_changing_organizational_agility_to_5_gives_iq_70_and_vfm_714_29(
         select(AuditEvent).where(AuditEvent.action == AuditAction.IQ_CONFIRMED.value)
     )
     assert confirmed_event is not None
-    assert confirmed_event.details == {"changed": ["organizational_agility"]}
+    # Which scores changed, which carry a note, the method version and the model that
+    # answered; never a score or any text.
+    assert confirmed_event.details == {
+        "changed": ["organizational_agility"],
+        "with_note": [],
+        "question_set_version": QUESTION_SET.version,
+        "ai_model": GOLDEN["replies"][0]["model"],
+    }
+    requested_event = db.scalar(
+        select(AuditEvent).where(AuditEvent.action == AuditAction.IQ_REQUESTED.value)
+    )
+    assert requested_event is not None
+    assert requested_event.details["rerun"] is False
+    assert requested_event.details["question_set_version"] == QUESTION_SET.version
+    assert requested_event.details["ai_model"]
 
 
 def test_accepting_the_proposal_unchanged_gives_the_proposed_iq(
@@ -277,7 +304,46 @@ def test_a_failed_proposal_can_be_asked_for_again(client: TestClient, use_ai: Us
     assert second["proposal_status"] == "ready"
 
 
+def test_an_idea_whose_proposal_failed_can_be_changed_again(
+    client: TestClient, use_ai: UseAi
+) -> None:
+    """A failed proposal must not leave the idea stuck in "submitted": it is a draft again,
+    while a proposal on its way or waiting for review still blocks edits."""
+    failed = fixture("propose_iq_scores", "adversarial_obeyed")
+    use_ai(*recorded_replies(failed), *recorded_replies(GOLDEN))
+    owner, org = member(MembershipRole.OWNER)
+    _as(client, owner, org)
+    idea = _create(client).json()
+    first = _score(client, idea["id"])
+    assert first["proposal_status"] == "failed"
+    assert client.get(f"{BASE}/{idea['id']}").json()["status"] == "submitted"
+
+    changed = _patch(client, idea["id"], {"title": "Sharper title"})
+    assert changed.status_code == 200, changed.text
+    assert (changed.json()["title"], changed.json()["status"]) == ("Sharper title", "draft")
+
+    second = _score(client, idea["id"])
+    assert second["proposal_status"] == "ready"
+    waiting = _patch(client, idea["id"], {"title": "Too late"})
+    assert waiting.status_code == 409
+    assert "waiting for review" in waiting.json()["error"]["message"]
+
+
 # Review rules
+
+
+def test_review_notes_have_a_length_limit(client: TestClient, use_ai: UseAi) -> None:
+    use_ai(*recorded_replies(GOLDEN))
+    owner, org = member(MembershipRole.OWNER)
+    _as(client, owner, org)
+    idea = _create(client).json()
+    proposal = _score(client, idea["id"])
+    too_long = _review(client, idea["id"], proposal["id"], notes={"customer_journey": "x" * 2001})
+    assert too_long.status_code == 422
+    kept = _review(client, idea["id"], proposal["id"], notes={"customer_journey": " y" * 1000})
+    assert kept.status_code == 200, kept.text
+    note = next(d for d in kept.json()["dimensions"] if d["key"] == "customer_journey")["note"]
+    assert note == ("y " * 1000).strip()
 
 
 def test_review_scores_must_be_on_the_scale(client: TestClient, use_ai: UseAi) -> None:
@@ -404,6 +470,37 @@ def test_an_investor_watches_and_a_consultant_sees_assessed_ideas_only(
     assert client.get(f"{BASE}/{draft['id']}").status_code == 404
     assert client.get(f"{BASE}/{scored['id']}/assessments/{proposal['id']}").json()["iq"] == "69.2"
     assert _create(client).status_code == 403
+
+
+def test_a_consultant_keeps_seeing_a_confirmed_idea_while_it_is_scored_again(
+    client: TestClient, use_ai: UseAi
+) -> None:
+    """Scoring again puts the idea back to "submitted"; the consultant still sees it, with
+    the confirmed assessment as its latest, and never the new proposal."""
+    use_ai(*recorded_replies(GOLDEN), *recorded_replies(GOLDEN))
+    owner, org = member(MembershipRole.OWNER)
+    amy = verified_user(email="amy@example.com")
+    ConsultantGrantFactory.create(
+        organisation=org,
+        consultant_email=amy.email,
+        consultant_user_id=amy.id,
+        accepted_at=datetime.now(UTC),
+    )
+    _as(client, owner, org)
+    idea = _create(client).json()
+    first = _score(client, idea["id"])
+    _post(client, f"{idea['id']}/assessments/{first['id']}/confirm")
+    second = _score(client, idea["id"])
+    assert second["status"] == "proposed"
+
+    _as(client, amy, org)
+    listed = client.get(BASE).json()
+    assert [i["id"] for i in listed] == [idea["id"]]
+    assert listed[0]["latest_assessment"]["id"] == first["id"]
+    detail = client.get(f"{BASE}/{idea['id']}").json()
+    assert detail["latest_assessment"]["iq"] == "69.2"
+    assert [a["id"] for a in detail["assessments"]] == [first["id"]]
+    assert client.get(f"{BASE}/{idea['id']}/assessments/{second['id']}").status_code == 404
 
 
 def test_another_organisation_sees_nothing(client: TestClient, use_ai: UseAi) -> None:
