@@ -6,13 +6,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-// Authentication pages using the premium split layout.
 const AUTH_PAGES: Record<
   string,
-  {
-    title: string;
-    subtitle: string;
-  }
+  { title: string; subtitle: string }
 > = {
   "/sign-in": {
     title: "Welcome back",
@@ -21,27 +17,31 @@ const AUTH_PAGES: Record<
   "/sign-up": {
     title: "Start innovating",
     subtitle:
-      "Create your account and unlock smarter innovation decisions.",
+      "Create your account and make smarter innovation decisions.",
   },
   "/forgot-password": {
     title: "Forgot password?",
     subtitle:
-      "We'll help you get back into your innovation workspace.",
+      "We'll help you regain access to your workspace.",
   },
   "/reset-password": {
     title: "Secure your account",
     subtitle:
       "Choose a new password to regain access to your workspace.",
   },
+  "/verify-email": {
+    title: "Verify your email",
+    subtitle:
+      "One final step to secure your innovation workspace.",
+  },
 };
 
-// Shared official InnoValuation branding.
-function Logo({ dark = false }: { dark?: boolean }) {
+function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link
       href="/"
-      className="inline-flex w-fit items-center gap-2.5"
       aria-label="InnoValuation home"
+      className="inline-flex w-fit items-center gap-2.5 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#DAB56D]"
     >
       <Image
         src="/innovaluation-mark.png"
@@ -49,15 +49,12 @@ function Logo({ dark = false }: { dark?: boolean }) {
         width={40}
         height={40}
         priority
-        className="size-10 object-contain"
+        className="size-10 shrink-0 object-contain"
       />
 
       <span
-        className={
-          dark
-            ? "text-xl font-bold tracking-tight text-white"
-            : "bg-linear-to-r from-[#1878B5] to-[#22BC91] bg-clip-text text-xl font-bold tracking-tight text-transparent"
-        }
+        className={`text-xl font-bold tracking-tight ${light ? "text-white" : "text-[#10243B]"
+          }`}
       >
         InnoValuation
       </span>
@@ -65,126 +62,111 @@ function Logo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-// Desktop marketing / branding panel.
 function BrandPanel() {
   return (
-    <section className="relative isolate hidden flex-col overflow-hidden bg-[#10243B] px-7 py-8 text-white lg:flex lg:min-h-full lg:w-[54%] lg:px-12 lg:py-8 xl:px-20">
-      {/* Decorative brand lighting */}
+    <aside className="relative hidden min-w-0 flex-col overflow-hidden bg-[#10243B] px-10 py-8 text-white lg:flex lg:w-[53%] xl:px-16 2xl:px-20">
+      {/* Subtle geometry, without colour gradients. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-32 -top-40 size-[430px] rounded-full bg-[#147FC1]/20 blur-[95px]"
+        className="pointer-events-none absolute -right-28 top-1/4 size-80 rounded-full border border-white/[0.055]"
       />
-
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-48 -left-28 size-[430px] rounded-full bg-[#1CC49A]/15 blur-[95px]"
+        className="pointer-events-none absolute -right-14 top-1/3 size-56 rounded-full border border-white/[0.055]"
       />
 
-      {/* Official logo */}
-      <div className="relative z-10">
-        <Logo dark />
+      <div className="relative z-10 shrink-0">
+        <Logo light />
       </div>
 
-      {/* Main branding content */}
-      <div className="relative z-10 my-auto max-w-[620px] py-8 lg:py-4">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#63DFC7]/20 bg-[#63DFC7]/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.13em] text-[#75E1CC]">
-          <span className="size-1.5 rounded-full bg-[#63DFC7]" />
+      <div className="relative z-10 my-auto max-w-[610px] py-5">
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.055] px-3.5 py-2 text-[10px] font-semibold tracking-[0.16em] text-[#E2BC77]">
+          <span className="size-1.5 rounded-full bg-[#DAB56D]" />
           INNOVATION INTELLIGENCE
         </div>
 
-        <h1 className="max-w-[590px] text-[clamp(2rem,3.1vw,3.5rem)] font-semibold leading-[1.12] tracking-[-0.04em]">
+        <h1 className="max-w-[590px] text-[clamp(2rem,3.2vw,3.5rem)] leading-[1.12] font-semibold tracking-[-0.035em]">
           Great ideas deserve{" "}
-          <span className="bg-linear-to-r from-[#74D3EB] to-[#50DFAE] bg-clip-text text-transparent">
+          <span className="text-[#DAB56D]">
             measurable impact.
           </span>
         </h1>
 
-        <p className="mt-5 max-w-[510px] text-[15px] leading-7 text-[#BDD0DF]">
+        <p className="mt-5 max-w-[510px] text-[15px] leading-7 text-[#C5D0DC]">
           Understand your innovation potential, evaluate
           opportunities with confidence, and turn ambitious
           ideas into meaningful outcomes.
         </p>
 
-        {/* Innovation framework preview */}
-        <div className="mt-7 max-w-[520px] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.055] p-5 backdrop-blur-sm">
+        <div className="mt-7 max-w-[520px] rounded-2xl border border-white/10 bg-[#1B3452] p-5 shadow-[0_20px_45px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-[#A9C2D3]">
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-[#AEBFD0]">
                 INNOVATION FRAMEWORK
               </p>
-
-              <h2 className="mt-1 text-lg font-semibold">
+              <h2 className="mt-1.5 text-lg font-semibold text-white">
                 Discover your potential
               </h2>
             </div>
 
-            <span className="rounded-lg border border-[#54D5C1]/20 bg-[#54D5C1]/10 px-3 py-2 text-xs font-semibold text-[#77E5D1]">
+            <span className="shrink-0 rounded-lg border border-[#DAB56D]/25 bg-[#DAB56D]/10 px-3 py-2 text-xs font-semibold text-[#E2BC77]">
               12 dimensions
             </span>
           </div>
 
-          {/* Decorative framework indicator */}
           <div
             className="mt-5 grid grid-cols-12 gap-1.5"
             aria-hidden="true"
           >
             {Array.from({ length: 12 }, (_, index) => (
-              <div
+              <span
                 key={index}
                 className={`h-2 rounded-full ${index < 8
-                  ? "bg-[#48CFBC]"
+                  ? "bg-[#DAB56D]"
                   : "bg-white/15"
                   }`}
               />
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#BDD0DF]">
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#C5D0DC]">
             <span>Innovation readiness</span>
             <span>Idea evaluation</span>
             <span>Team alignment</span>
           </div>
         </div>
 
-        <p className="mt-7 text-sm font-medium text-[#77DFCC]">
+        <p className="mt-6 text-sm font-medium text-[#E2BC77]">
           Think bigger. Measure smarter. Innovate confidently.
         </p>
       </div>
 
-      {/* Brand footer */}
-      <div className="relative z-10 flex items-center justify-between gap-3 text-xs text-[#94B0C3]">
+      <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 text-xs text-[#9EADBF]">
         <span>Innovation · Growth · Valuation</span>
         <span>InnoValuation</span>
       </div>
-    </section>
+    </aside>
   );
 }
 
-// Compact mobile branding.
 function MobileBrand() {
   return (
-    <header className="relative shrink-0 overflow-hidden bg-[#10243B] px-5 py-4 text-white sm:px-8 lg:hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-24 size-48 rounded-full bg-[#1CC49A]/20 blur-3xl"
-      />
+    <header className="shrink-0 border-b border-white/10 bg-[#10243B] px-5 py-3.5 text-white sm:px-8 lg:hidden">
+      <div className="flex items-center justify-between gap-3">
+        <Logo light />
 
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        <Logo dark />
-
-        <span className="rounded-full border border-[#65E2CF]/20 bg-[#65E2CF]/10 px-2.5 py-1 text-[10px] font-medium text-[#79E8D3]">
+        <span className="shrink-0 rounded-full border border-[#DAB56D]/25 px-2.5 py-1 text-[10px] font-semibold text-[#E2BC77]">
           INNOVATE
         </span>
       </div>
 
-      <p className="relative z-10 mt-1.5 text-xs text-[#B9CEDD]">
+      <p className="mt-1 text-[11px] text-[#C5D0DC]">
         Great ideas deserve measurable impact.
       </p>
     </header>
   );
 }
 
-// Shared right-side authentication panel.
 function AuthPanel({
   children,
   pathname,
@@ -194,38 +176,36 @@ function AuthPanel({
 }) {
   const heading = AUTH_PAGES[pathname] ?? {
     title: "Welcome back",
-    subtitle: "Sign in to continue your innovation journey.",
+    subtitle:
+      "Sign in to continue your innovation journey.",
   };
 
   return (
-    <section className="flex min-w-0 flex-1 items-start justify-center bg-white px-5 pt-8 pb-5 sm:px-12 lg:items-center lg:px-10 lg:py-6 xl:px-16">
-      <div className="w-full max-w-[420px]">
-        {/* Desktop logo */}
-        <div className="mb-5 sm:mb-7">
+    <section className="flex min-w-0 flex-1 flex-col justify-start bg-white px-5 pt-7 pb-5 sm:justify-center sm:px-10 sm:py-8 lg:px-10 xl:px-16">
+      <div className="mx-auto w-full max-w-[430px]">
+        <div className="mb-5 sm:mb-6">
           <div className="hidden lg:block">
             <Logo />
           </div>
 
-          {/* Contextual page heading */}
-          <div className="mt-0 lg:mt-9">
-            <p className="text-xs font-semibold tracking-[0.12em] text-[#0C9D8E]">
+          <div className="lg:mt-9">
+            <p className="text-[10px] font-bold tracking-[0.15em] text-[#315779]">
               YOUR INNOVATION WORKSPACE
             </p>
 
-            <h2 className="mt-2 text-[28px] font-semibold tracking-tight text-[#10243B] sm:text-3xl">
+            <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight text-[#10243B] sm:text-3xl">
               {heading.title}
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="mt-2 text-sm leading-6 text-[#64748B]">
               {heading.subtitle}
             </p>
           </div>
         </div>
 
-        {/* Existing authentication functionality */}
         {children}
 
-        <p className="mt-7 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-[11px] text-[#94A3B8]">
           Innovation · Growth · Valuation
         </p>
       </div>
@@ -233,7 +213,6 @@ function AuthPanel({
   );
 }
 
-// Auth route layout.
 export default function AuthLayout({
   children,
 }: {
@@ -241,13 +220,12 @@ export default function AuthLayout({
 }) {
   const pathname = usePathname();
 
-  const usePremiumLayout = Object.prototype.hasOwnProperty.call(
+  const premium = Object.prototype.hasOwnProperty.call(
     AUTH_PAGES,
-    pathname
+    pathname,
   );
 
-  // Preserve the original layout for remaining auth routes.
-  if (!usePremiumLayout) {
+  if (!premium) {
     return (
       <main
         id="main"
@@ -267,7 +245,7 @@ export default function AuthLayout({
   return (
     <main
       id="main"
-      className="flex min-h-dvh w-full flex-col bg-white lg:min-h-dvh lg:flex-row"
+      className="flex min-h-dvh w-full flex-col bg-white lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-y-auto"
     >
       <MobileBrand />
       <BrandPanel />

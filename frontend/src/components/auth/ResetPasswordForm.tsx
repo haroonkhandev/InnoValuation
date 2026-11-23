@@ -6,18 +6,15 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { AuthInput } from "@/components/auth/AuthInput";
+import {
+  authButtonClass,
+  authSecondaryLinkClass,
+} from "@/components/auth/authStyles";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { resetPassword } from "@/lib/api/auth";
 import { clearHash, readHashToken } from "@/lib/hash-token";
 import { newPasswordError, useSubmit } from "@/lib/forms";
-
-const buttonStyle =
-  "h-12 w-full !rounded-xl !bg-gradient-to-r " +
-  "!from-[#167FC4] !via-[#0E9EAE] !to-[#17B890] " +
-  "!text-white transition-all duration-300 " +
-  "hover:!brightness-105 active:scale-[0.99] " +
-  "disabled:!opacity-60 motion-reduce:transform-none";
 
 export function ResetPasswordForm() {
   const { busy, error, run } = useSubmit();
@@ -27,25 +24,26 @@ export function ResetPasswordForm() {
   >("checking");
 
   const [password, setPassword] = useState("");
-  const [fieldError, setFieldError] = useState<
-    string | undefined
-  >(undefined);
-  const [doneMessage, setDoneMessage] = useState<
-    string | null
-  >(null);
+
+  const [fieldError, setFieldError] =
+    useState<string | undefined>();
+
+  const [doneMessage, setDoneMessage] =
+    useState<string | null>(null);
 
   const started = useRef(false);
 
-  // Preserve the existing fragment-token security flow.
   useEffect(() => {
     if (started.current) return;
 
     started.current = true;
+
     setState({ token: readHashToken() });
     clearHash();
   }, []);
 
-  const token = state === "checking" ? null : state.token;
+  const token =
+    state === "checking" ? null : state.token;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -60,7 +58,7 @@ export function ResetPasswordForm() {
     }
 
     const result = await run(() =>
-      resetPassword(token, password)
+      resetPassword(token, password),
     );
 
     if (result) {
@@ -70,7 +68,10 @@ export function ResetPasswordForm() {
 
   if (state === "checking") {
     return (
-      <div role="status" className="py-5 text-sm text-slate-500">
+      <div
+        role="status"
+        className="py-5 text-sm text-slate-500"
+      >
         Checking your reset link...
       </div>
     );
@@ -79,7 +80,7 @@ export function ResetPasswordForm() {
   if (doneMessage) {
     return (
       <div className="space-y-5">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <div className="flex size-14 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700">
           <svg
             className="size-7"
             viewBox="0 0 24 24"
@@ -99,16 +100,18 @@ export function ResetPasswordForm() {
           Password updated
         </h3>
 
-        <Alert tone="success">{doneMessage}</Alert>
+        <Alert tone="success">
+          {doneMessage}
+        </Alert>
 
-        <p className="text-sm leading-6 text-slate-500">
+        <p className="text-sm leading-6 text-slate-600">
           Your password has been changed successfully.
           You can now sign in with your new password.
         </p>
 
         <Link
           href="/sign-in"
-          className="flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-[#167FC4] via-[#0E9EAE] to-[#17B890] text-sm font-semibold text-white transition-all duration-200 hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
+          className={authButtonClass}
         >
           Go to sign in
         </Link>
@@ -126,7 +129,7 @@ export function ResetPasswordForm() {
 
         <Link
           href="/forgot-password"
-          className="flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-[#167FC4] via-[#0E9EAE] to-[#17B890] text-sm font-semibold text-white transition-all duration-200 hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
+          className={authButtonClass}
         >
           Request a new link
         </Link>
@@ -141,7 +144,9 @@ export function ResetPasswordForm() {
       noValidate
     >
       {error && (
-        <Alert tone="error">{error.message}</Alert>
+        <Alert tone="error">
+          {error.message}
+        </Alert>
       )}
 
       <AuthInput
@@ -152,40 +157,40 @@ export function ResetPasswordForm() {
         placeholder="Enter your new password"
         required
         minLength={8}
+        hint="Use at least 8 characters."
         error={fieldError}
         value={password}
         onChange={(event) => {
           const next = event.target.value;
+
           setPassword(next);
 
           setFieldError((previous) =>
             previous
               ? newPasswordError(next)
-              : undefined
+              : undefined,
           );
         }}
       />
 
-      <p className="text-xs text-slate-500">
-        Use at least 8 characters.
-      </p>
-
       <Button
         type="submit"
         busy={busy}
-        className={buttonStyle}
+        className={authButtonClass}
       >
-        {busy ? "Updating password..." : "Change password"}
+        {busy
+          ? "Updating password..."
+          : "Change password"}
       </Button>
 
-      <p className="text-center text-sm">
+      <div className="text-center">
         <Link
           href="/sign-in"
-          className="font-semibold text-[#1285B5] transition-colors hover:text-[#0DAD94] hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
+          className={authSecondaryLinkClass}
         >
           Back to sign in
         </Link>
-      </p>
+      </div>
     </form>
   );
 }

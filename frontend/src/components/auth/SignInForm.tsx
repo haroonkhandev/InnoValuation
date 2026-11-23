@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -12,48 +13,101 @@ import { resendVerification, signIn } from "@/lib/api/auth";
 import type { MeOut } from "@/lib/api/types";
 import { useSubmit } from "@/lib/forms";
 
-/** A same-site path from ?next=, or null. Rejects absolute and scheme-relative URLs;
- * backslashes count as slashes because URL parsers normalise them. */
+/**
+ * Accept same-site paths only.
+ * Reject absolute URLs, backslashes and scheme-relative paths.
+ */
 function safeNext(): string | null {
-  const next = new URLSearchParams(window.location.search).get("next");
+  const next = new URLSearchParams(
+    window.location.search,
+  ).get("next");
+
   return next && /^\/[^/\\]/.test(next) ? next : null;
 }
 
 function landingPage(me: MeOut): string {
   if (me.memberships.length > 0) return "/dashboard";
-  if (me.consultant_organisations.length > 0) return "/consultant-access";
+
+  if (me.consultant_organisations.length > 0) {
+    return "/consultant-access";
+  }
+
   return "/organisations/new";
 }
+
+const actionClass = [
+  "group relative flex h-12 w-full items-center justify-center",
+  "!rounded-xl !bg-[#10243B] !text-white",
+  "!shadow-[0_6px_18px_rgba(16,36,59,0.12)]",
+  "transition-all duration-200",
+  "hover:!bg-[#1B3452]",
+  "hover:!shadow-[0_9px_22px_rgba(16,36,59,0.17)]",
+  "active:scale-[0.99]",
+  "focus-visible:!outline-[#304E73]",
+  "disabled:!bg-[#8797A9] disabled:!shadow-none",
+  "motion-reduce:transform-none",
+].join(" ");
+
+const linkClass = [
+  "font-semibold text-[#183C64]",
+  "transition-colors duration-200",
+  "hover:text-[#315D89] hover:underline",
+  "focus-visible:rounded-sm",
+  "focus-visible:outline-2",
+  "focus-visible:outline-offset-2",
+  "focus-visible:outline-[#315D89]",
+].join(" ");
 
 export function SignInForm() {
   const router = useRouter();
   const { busy, error, run } = useSubmit();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+
   const [resent, setResent] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setResent(false);
+
     const invalid = {
-      email: email.trim() ? undefined : "Enter your email address.",
-      password: password ? undefined : "Enter your password.",
+      email: email.trim()
+        ? undefined
+        : "Enter your email address.",
+      password: password
+        ? undefined
+        : "Enter your password.",
     };
+
     if (invalid.email || invalid.password) {
       setFieldErrors(invalid);
       return;
     }
+
     const me = await run(() => signIn(email, password));
-    // The hash (e.g. an invitation token) never reaches the server; carry it along.
-    if (me) router.push((safeNext() ?? landingPage(me)) + window.location.hash);
+
+    if (me) {
+      // Preserve invitation fragments during redirects.
+      router.push(
+        (safeNext() ?? landingPage(me)) +
+        window.location.hash,
+      );
+    }
   }
 
   async function handleResend() {
-    const sent = await run(() => resendVerification(email));
+    const sent = await run(() =>
+      resendVerification(email),
+    );
+
     if (sent) setResent(true);
   }
-
 
   return (
     <form
@@ -125,7 +179,7 @@ export function SignInForm() {
         <div className="mt-2 flex justify-end">
           <Link
             href="/forgot-password"
-            className="text-xs font-medium text-[#1285B5] transition-colors hover:text-[#0DAD94] hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
+            className={`text-xs ${linkClass}`}
           >
             Forgot password?
           </Link>
@@ -135,21 +189,7 @@ export function SignInForm() {
       <Button
         type="submit"
         busy={busy}
-        className="
-        group relative h-12 w-full
-        !rounded-xl
-        !bg-gradient-to-r
-        !from-[#167FC4]
-        !via-[#0E9EAE]
-        !to-[#17B890]
-        !text-white
-        !shadow-[0_6px_20px_rgba(14,158,174,0.18)]
-        transition-all duration-300
-        hover:!brightness-105
-        hover:!shadow-[0_8px_24px_rgba(14,158,174,0.25)]
-        active:scale-[0.99]
-        motion-reduce:transform-none
-      "
+        className={actionClass}
       >
         {busy ? (
           <span className="flex items-center gap-2">
@@ -177,16 +217,27 @@ export function SignInForm() {
             Signing in...
           </span>
         ) : (
-          <span>Sign in to workspace</span>
+          <span className="flex items-center gap-2">
+            Sign in to workspace
+            <svg
+              className="size-4 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transform-none"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
         )}
       </Button>
 
       <p className="pt-1 text-center text-sm text-slate-500">
         New to InnoValuation?{" "}
-        <Link
-          href="/sign-up"
-          className="font-semibold text-[#1285B5] transition-colors hover:text-[#0DAD94] hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9EAE]"
-        >
+        <Link href="/sign-up" className={linkClass}>
           Create an account
         </Link>
       </p>
