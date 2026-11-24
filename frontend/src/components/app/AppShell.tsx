@@ -1,15 +1,34 @@
+
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
+import {
+  ArrowUpRight,
+  BriefcaseBusiness,
+  Building2,
+  ClipboardCheck,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Plus,
+  ShieldCheck,
+  UserRound,
+  UsersRound,
+  X,
+} from "lucide-react";
 
 import { MeProvider } from "@/components/app/me-context";
 import { OrgSwitcher } from "@/components/app/OrgSwitcher";
 import { Alert } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 import { signOut } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
@@ -22,82 +41,165 @@ type State =
   | { kind: "ready"; me: MeOut }
   | { kind: "error"; message: string };
 
-/** A main-navigation link that marks the page it is on for styling and screen readers. */
-function NavLink({ href, children }: { href: string; children: ReactNode }) {
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+};
+
+function WorkspaceLink({
+  item,
+  mobile = false,
+  onNavigate,
+}: {
+  item: NavItem;
+  mobile?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const current = pathname === href || pathname.startsWith(`${href}/`);
+  const active =
+    pathname === item.href ||
+    pathname.startsWith(`${item.href}/`);
+
+  const Icon = item.icon;
+
   return (
     <Link
-      href={href}
-      aria-current={current ? "page" : undefined}
-      className={
-        current ? "font-medium text-neutral-900" : "hover:text-neutral-900 hover:underline"
-      }
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+      className={[
+        "iv-nav-link",
+        active ? "iv-nav-active" : "",
+        mobile ? "iv-nav-mobile-link" : "",
+      ].filter(Boolean).join(" ")}
     >
-      {children}
+      <Icon size={18} strokeWidth={1.7} aria-hidden="true" />
+      <span>{item.label}</span>
+
+      {mobile && (
+        <span className="iv-mobile-nav-end" aria-hidden="true">
+          {active ? (
+            <span className="iv-nav-current-dot" />
+          ) : (
+            <ArrowUpRight size={15} />
+          )}
+        </span>
+      )}
     </Link>
   );
 }
 
-/** The signed-in frame: loads /me, sends visitors without a session to sign in, and
- * shows the navigation with the organisation switcher. */
-export function AppShell({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>({ kind: "loading" });
+function OrganisationControl() {
+  return (
+    <div className="iv-org-control">
+      <OrgSwitcher />
+    </div>
+  );
+}
+
+export function AppShell({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [state, setState] = useState<State>({
+    kind: "loading",
+  });
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const router = useRouter();
+  const pathname = usePathname();
   const header = useRef<HTMLElement>(null);
+
   const ready = state.kind === "ready";
 
-  // Sticky page panels sit just below the header (top: var(--app-header-h)), and the
-  // header grows when its navigation wraps, so its real height is published here.
+  // Keep sticky page content aligned below the actual header.
   useEffect(() => {
     const element = header.current;
     if (!element) return;
-    const publish = () =>
+
+    const publish = () => {
       document.documentElement.style.setProperty(
         "--app-header-h",
         `${element.offsetHeight}px`,
       );
+    };
+
     publish();
+
+    if (typeof ResizeObserver === "undefined") return;
+
     const observer = new ResizeObserver(publish);
     observer.observe(element);
+
     return () => observer.disconnect();
   }, [ready]);
 
+  // Preserve the existing authentication and /me workflow.
   const load = useCallback(async () => {
     try {
       const me = await getMe();
       setState({ kind: "ready", me });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        const next = window.location.pathname + window.location.search;
-        router.replace(`/sign-in?next=${encodeURIComponent(next)}${window.location.hash}`);
+        const next =
+          window.location.pathname +
+          window.location.search;
+
+        router.replace(
+          `/sign-in?next=${encodeURIComponent(next)}${window.location.hash}`,
+        );
         return;
       }
+
       setState({
         kind: "error",
-        message: err instanceof ApiError ? err.message : "Something went wrong.",
+        message:
+          err instanceof ApiError
+            ? err.message
+            : "Something went wrong.",
       });
     }
   }, [router]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set only once the response arrives
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
+  // Allow users to dismiss the mobile menu with Escape.
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () =>
+      document.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
+
   async function handleSignOut() {
+    setMobileOpen(false);
+
     try {
       await signOut();
     } catch {
-      // Go to sign-in anyway: its page loads /me, so a session that survived a
-      // failed sign-out call shows up instead of being silently kept.
+      // Preserve the existing sign-out fallback.
     }
+
     router.push("/sign-in");
   }
 
   if (state.kind === "loading") {
     return (
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
+      <main
+        id="main"
+        className="mx-auto w-full max-w-5xl flex-1 px-4 py-10"
+      >
         <Loading>Loading your account...</Loading>
       </main>
     );
@@ -105,7 +207,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (state.kind === "error") {
     return (
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
+      <main
+        id="main"
+        className="mx-auto w-full max-w-5xl flex-1 px-4 py-10"
+      >
         <Alert tone="error">{state.message}</Alert>
       </main>
     );
@@ -113,60 +218,265 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const { me } = state;
   const membership = activeMembership(me);
+  const manager =
+    !!membership && canManage(membership.role);
+
+  const navItems: NavItem[] = [
+    {
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+    },
+    ...(
+      membership || me.consultant_organisations.length > 0
+        ? [{
+          href: "/readiness",
+          label: "Readiness",
+          icon: ClipboardCheck,
+        }]
+        : []
+    ),
+    ...(membership
+      ? [{
+        href: "/team",
+        label: "Team",
+        icon: UsersRound,
+      }]
+      : []),
+    ...(manager
+      ? [
+        {
+          href: "/organisation",
+          label: "Organisation",
+          icon: Building2,
+        },
+        {
+          href: "/consultants",
+          label: "Consultants",
+          icon: BriefcaseBusiness,
+        },
+      ]
+      : []),
+    ...(me.consultant_organisations.length > 0
+      ? [{
+        href: "/consultant-access",
+        label: "My access",
+        icon: ShieldCheck,
+      }]
+      : []),
+    {
+      href: "/account",
+      label: "Account",
+      icon: UserRound,
+    },
+  ];
+
+  const initial =
+    me.name.trim().charAt(0).toUpperCase() || "U";
+
+  const accountActive =
+    pathname === "/account";
 
   return (
     <MeProvider
       value={{
         me,
-        update: (next) => setState({ kind: "ready", me: next }),
+        update: (next) =>
+          setState({ kind: "ready", me: next }),
         refresh: load,
       }}
     >
-      <header
-        ref={header}
-        className="sticky top-0 z-30 border-b border-neutral-200/70 bg-white/80 backdrop-blur-xl"
-      >
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Image src="/innovaluation-mark.png" alt="" width={28} height={27} />
-            <span className="bg-linear-to-r from-primary to-accent bg-clip-text font-serif text-lg font-semibold tracking-tight text-transparent">
-              InnoValuation
-            </span>
-          </Link>
-          <nav aria-label="Main" className="flex items-center gap-4 text-sm text-neutral-700">
-            <NavLink href="/dashboard">Dashboard</NavLink>
-            {(membership || me.consultant_organisations.length > 0) && (
-              <NavLink href="/readiness">Readiness</NavLink>
-            )}
-            {membership && <NavLink href="/team">Team</NavLink>}
-            {membership && canManage(membership.role) && (
-              <>
-                <NavLink href="/organisation">Organisation</NavLink>
-                <NavLink href="/consultants">Consultants</NavLink>
-              </>
-            )}
-            {me.consultant_organisations.length > 0 && (
-              <NavLink href="/consultant-access">My access</NavLink>
-            )}
-            <NavLink href="/account">Account</NavLink>
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <OrgSwitcher />
+      <div className="iv-workspace">
+        <a href="#main" className="iv-skip-link">
+          Skip to content
+        </a>
+
+        <header
+          ref={header}
+          className="iv-app-header"
+        >
+          <div className="iv-header-inner">
             <Link
-              href="/organisations/new"
-              className="text-sm text-neutral-700 hover:text-neutral-900 hover:underline"
+              href="/dashboard"
+              className="iv-brand"
+              aria-label="InnoValuation dashboard"
+              onClick={() => setMobileOpen(false)}
             >
-              New organisation
+              <span className="iv-brand-mark">
+                <Image
+                  src="/innovaluation-mark.png"
+                  alt=""
+                  width={38}
+                  height={38}
+                  priority
+                  className="object-contain"
+                />
+              </span>
+
+              <span className="iv-brand-name">
+                Inno<span>Valuation</span>
+              </span>
             </Link>
-            <Button variant="secondary" onClick={() => void handleSignOut()}>
-              Sign out
-            </Button>
+
+            <nav
+              aria-label="Main navigation"
+              className="iv-desktop-nav"
+            >
+              {navItems.map((item) => (
+                <WorkspaceLink
+                  key={item.href}
+                  item={item}
+                />
+              ))}
+            </nav>
+
+            <div className="iv-header-actions iv-header-actions-fixed">
+              <div className="iv-desktop-org">
+                <OrganisationControl />
+              </div>
+
+              <Link
+                href="/organisations/new"
+                className="iv-header-create"
+                aria-label="New organisation"
+                title="Create organisation"
+              >
+                <Plus size={18} aria-hidden="true" />
+              </Link>
+
+              <button
+                type="button"
+                className="iv-desktop-signout"
+                onClick={() => void handleSignOut()}
+              >
+                <LogOut size={16} aria-hidden="true" />
+                <span>Sign out</span>
+              </button>
+
+              <Link
+                href="/account"
+                className={[
+                  "iv-account-avatar",
+                  accountActive ? "iv-avatar-active" : "",
+                ].filter(Boolean).join(" ")}
+                aria-label="Account settings"
+                title={me.name}
+                onClick={() => setMobileOpen(false)}
+              >
+                {initial}
+              </Link>
+
+              <button
+                type="button"
+                className="iv-mobile-toggle"
+                aria-label={
+                  mobileOpen ? "Close menu" : "Open menu"
+                }
+                aria-expanded={mobileOpen}
+                aria-controls="iv-mobile-menu"
+                onClick={() =>
+                  setMobileOpen((value) => !value)
+                }
+              >
+                {mobileOpen
+                  ? <X size={22} aria-hidden="true" />
+                  : <Menu size={22} aria-hidden="true" />}
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-        {children}
-      </main>
+
+          {mobileOpen && (
+            <div
+              id="iv-mobile-menu"
+              className="iv-mobile-menu"
+            >
+              <div className="iv-mobile-menu-inner">
+                <div className="iv-mobile-profile">
+                  <div className="iv-mobile-profile-avatar">
+                    {initial}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="iv-profile-name">
+                      {me.name}
+                    </p>
+                    <p className="iv-profile-email">
+                      {me.email}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="iv-mobile-org">
+                  <span className="iv-mobile-caption">
+                    YOUR WORKSPACE
+                  </span>
+                  <OrganisationControl />
+                </div>
+
+                <span className="iv-mobile-caption iv-menu-caption">
+                  MAIN MENU
+                </span>
+
+                <nav
+                  aria-label="Mobile navigation"
+                  className="iv-mobile-links"
+                >
+                  {navItems.map((item) => (
+                    <WorkspaceLink
+                      key={item.href}
+                      item={item}
+                      mobile
+                      onNavigate={() => setMobileOpen(false)}
+                    />
+                  ))}
+                </nav>
+
+                <div className="iv-mobile-footer">
+                  <Link
+                    href="/organisations/new"
+                    className="iv-mobile-secondary"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                    <span>New organisation</span>
+                    <ArrowUpRight
+                      size={15}
+                      className="ml-auto"
+                      aria-hidden="true"
+                    />
+                  </Link>
+
+                  <button
+                    type="button"
+                    className="iv-mobile-secondary"
+                    onClick={() => void handleSignOut()}
+                  >
+                    <LogOut size={18} aria-hidden="true" />
+                    <span>Sign out</span>
+                  </button>
+                </div>
+
+                <p className="iv-menu-footnote">
+                  INNOVATION · GROWTH · VALUATION
+                </p>
+              </div>
+            </div>
+          )}
+        </header>
+
+        {mobileOpen && (
+          <button
+            type="button"
+            className="iv-mobile-backdrop"
+            aria-label="Close menu"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+
+        <main id="main" className="iv-main">
+          {children}
+        </main>
+      </div>
     </MeProvider>
   );
 }

@@ -134,6 +134,39 @@ function Header() {
           <a href="#who-its-for">Who it&apos;s for</a>
         </nav>
 
+
+        <details className="landing-mobile-menu">
+          <summary
+            className="landing-mobile-menu-trigger"
+            aria-label="Toggle navigation menu"
+          >
+            <span className="landing-mobile-menu-icon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </summary>
+
+          <nav className="landing-mobile-dropdown" aria-label="Mobile navigation">
+            <div className="landing-mobile-dropdown-heading">
+              EXPLORE INNOVALUATION
+            </div>
+
+            <a href="#how-it-works">How it works</a>
+            <a href="#features">Features</a>
+            <a href="#who-its-for">Who it&apos;s for</a>
+
+            <div className="landing-mobile-dropdown-divider" />
+
+            <Link href="/sign-in">Sign in</Link>
+
+            <Link href="/sign-up" className="landing-mobile-dropdown-cta">
+              Get started
+              <span aria-hidden="true">↗</span>
+            </Link>
+          </nav>
+        </details>
+
         <div className="landing-header-actions">
           <Link href="/sign-in" className="landing-signin">
             Sign in

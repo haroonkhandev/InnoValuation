@@ -1,3 +1,4 @@
+
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -20,10 +21,13 @@ import { QuestionnairePage } from "./QuestionnairePage";
 import { ReadinessListPage } from "./ReadinessListPage";
 import { ResultPage } from "./ResultPage";
 
-vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock());
+vi.mock("next/navigation", async () =>
+  (await import("@/test/navigation")).navigationMock(),
+);
 
 const ID = "77777777-7777-7777-7777-777777777777";
 const A = `/api/v1/readiness/assessments/${ID}`;
+
 const ALL = {
   customer_journey_1: 3,
   customer_journey_2: 4,
@@ -32,185 +36,525 @@ const ALL = {
 };
 
 describe("ReadinessListPage", () => {
-  it("lets an owner start an assessment and opens it", async () => {
-    routerPush.mockClear();
-    const calls = stubApi({
-      "GET /api/v1/readiness/assessments": [],
-      "POST /api/v1/readiness/assessments": fakeAssessment(),
-    });
-    const user = userEvent.setup();
+  it(
+    "lets an owner start an assessment and opens it",
+    async () => {
+      routerPush.mockClear();
 
-    renderWithMe(<ReadinessListPage />, fakeMe());
-    await user.click(await screen.findByRole("button", { name: "Start a readiness assessment" }));
+      const calls = stubApi({
+        "GET /api/v1/readiness/assessments": [],
+        "POST /api/v1/readiness/assessments":
+          fakeAssessment(),
+      });
 
-    expect(calls.at(-1)).toMatchObject({ method: "POST", path: "/api/v1/readiness/assessments" });
-    expect(routerPush).toHaveBeenCalledWith(`/readiness/${ID}`);
-  });
+      const user = userEvent.setup();
 
-  it("shows a final assessment's score and links to its result", async () => {
-    stubApi({
-      "GET /api/v1/readiness/assessments": [
-        fakeAssessmentSummary({ status: "final", total: 190, band_name: "Building Blocks" }),
-      ],
-    });
+      renderWithMe(<ReadinessListPage />, fakeMe());
 
-    renderWithMe(<ReadinessListPage />, fakeMe());
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Start a readiness assessment",
+        }),
+      );
 
-    expect(await screen.findByText("190 out of 300 · Building Blocks")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "See the result" })).toHaveAttribute(
-      "href",
-      `/readiness/${ID}/result`,
-    );
-    // No second assessment while one is open, but a final one does not block.
-    expect(screen.getByRole("button", { name: "Start a readiness assessment" })).toBeInTheDocument();
-  });
+      expect(calls.at(-1)).toMatchObject({
+        method: "POST",
+        path: "/api/v1/readiness/assessments",
+      });
+
+      expect(routerPush).toHaveBeenCalledWith(
+        `/readiness/${ID}`,
+      );
+    },
+  );
+
+  it(
+    "shows a final assessment score and links to its result",
+    async () => {
+      stubApi({
+        "GET /api/v1/readiness/assessments": [
+          fakeAssessmentSummary({
+            status: "final",
+            total: 190,
+            band_name: "Building Blocks",
+          }),
+        ],
+      });
+
+      renderWithMe(<ReadinessListPage />, fakeMe());
+
+      expect(
+        await screen.findByText(
+          "190 out of 300 · Building Blocks",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByRole("link", {
+          name: "See the result",
+        }),
+      ).toHaveAttribute(
+        "href",
+        `/readiness/${ID}/result`,
+      );
+
+      expect(
+        screen.getByRole("button", {
+          name: "Start a readiness assessment",
+        }),
+      ).toBeInTheDocument();
+    },
+  );
 });
 
 describe("QuestionnairePage", () => {
-  it("saves each answer as it is chosen and shows it saved", async () => {
-    const calls = stubApi({
-      [`GET ${A}`]: fakeAssessment(),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`PATCH ${A}/my-answers`]: (call: RecordedCall) =>
-        fakeAssessment({ my_answers: (call.body as { answers: Record<string, number> }).answers }),
-    });
-    const user = userEvent.setup();
+  it(
+    "saves each answer as it is chosen and shows it saved",
+    async () => {
+      const calls = stubApi({
+        [`GET ${A}`]: fakeAssessment(),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`PATCH ${A}/my-answers`]: (
+          call: RecordedCall,
+        ) =>
+          fakeAssessment({
+            my_answers: (
+              call.body as {
+                answers: Record<string, number>;
+              }
+            ).answers,
+          }),
+      });
 
-    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
-    const question = await screen.findByRole("group", {
-      name: "Do you understand the end-to-end experience?",
-    });
-    await user.click(within(question).getByRole("radio", { name: "4" }));
+      const user = userEvent.setup();
 
-    expect(calls.at(-1)).toMatchObject({
-      method: "PATCH",
-      path: `${A}/my-answers`,
-      body: { answers: { customer_journey_1: 4 } },
-    });
-    expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(screen.getByText("1 of 4 answered")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit my answers" })).toBeDisabled();
-  });
+      renderWithMe(
+        <QuestionnairePage assessmentId={ID} />,
+        fakeMe(),
+      );
 
-  it("submits once every question is answered, after a confirmation", async () => {
-    const calls = stubApi({
-      [`GET ${A}`]: fakeAssessment({ my_answers: ALL, my_status: "in_progress" }),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`POST ${A}/my-answers/submit`]: fakeAssessment({
-        my_answers: ALL,
-        my_status: "submitted",
-        my_submitted_at: "2026-10-21T10:00:00Z",
-      }),
-    });
-    const user = userEvent.setup();
+      const question = await screen.findByRole(
+        "group",
+        {
+          name: "Do you understand the end-to-end experience?",
+        },
+      );
 
-    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
-    await user.click(await screen.findByRole("button", { name: "Submit my answers" }));
-    await user.click(screen.getByRole("button", { name: "Submit now" }));
-
-    expect(calls.at(-1)).toMatchObject({ method: "POST", path: `${A}/my-answers/submit` });
-    expect(await screen.findByText(/Your answers are submitted/)).toBeInTheDocument();
-    // Submitted answers are locked.
-    const question = screen.getByRole("group", { name: "Is feedback integrated?" });
-    expect(within(question).getByRole("radio", { name: "4" })).toBeDisabled();
-  });
-
-  it("shows the facilitator everyone's progress and starts agreeing answers", async () => {
-    routerPush.mockClear();
-    const calls = stubApi({
-      [`GET ${A}`]: fakeAssessment({
-        submitted_count: 1,
-        participants: [
-          { user_id: "u1", name: "Mia Member", answered: 4, submitted_at: "2026-10-21T09:00:00Z" },
-          { user_id: "u2", name: "Late Larry", answered: 1, submitted_at: null },
-        ],
-      }),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`POST ${A}/consensus/begin`]: {},
-    });
-    const user = userEvent.setup();
-
-    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
-    expect(await screen.findByText("1 of 4 answered")).toBeInTheDocument(); // Late Larry
-    await user.click(screen.getByRole("button", { name: "Start agreeing answers" }));
-    expect(screen.getByText("Close answering with 1 submitted?")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Yes, start agreeing" }));
-
-    expect(calls.at(-1)).toMatchObject({ method: "POST", path: `${A}/consensus/begin` });
-    expect(routerPush).toHaveBeenCalledWith(`/readiness/${ID}/consensus`);
-  });
-
-  it("undoes an answer whose save failed, so it is neither shown nor counted", async () => {
-    stubApi({
-      [`GET ${A}`]: fakeAssessment(),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`PATCH ${A}/my-answers`]: errorResponse("wrong_status", "Answers are closed.", 409),
-    });
-    const user = userEvent.setup();
-
-    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
-    const question = await screen.findByRole("group", {
-      name: "Do you understand the end-to-end experience?",
-    });
-    await user.click(within(question).getByRole("radio", { name: "4" }));
-
-    expect(await screen.findByText(/Not saved/)).toBeInTheDocument();
-    expect(within(question).getByRole("radio", { name: "4" })).not.toBeChecked();
-    expect(screen.getByText("0 of 4 answered")).toBeInTheDocument();
-  });
-
-  it("submits only after the last answer has saved", async () => {
-    let releaseSave: () => void = () => {};
-    const order: string[] = [];
-    stubApi({
-      [`GET ${A}`]: fakeAssessment({
-        my_answers: { customer_journey_1: 3, customer_journey_2: 4, brand_magnetism_1: 3 },
-      }),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`PATCH ${A}/my-answers`]: () =>
-        new Promise((resolve) => {
-          releaseSave = () => {
-            order.push("save");
-            resolve(fakeAssessment({ my_answers: ALL }));
-          };
+      await user.click(
+        within(question).getByRole("radio", {
+          name: "4",
         }),
-      [`POST ${A}/my-answers/submit`]: () => {
-        order.push("submit");
-        return fakeAssessment({ my_answers: ALL, my_submitted_at: "2026-10-21T10:00:00Z" });
-      },
-    });
-    const user = userEvent.setup();
+      );
 
-    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
-    const last = await screen.findByRole("group", { name: "Does the story resonate?" });
-    await user.click(within(last).getByRole("radio", { name: "2" }));
-    // The last answer is still saving when the person submits.
-    await user.click(screen.getByRole("button", { name: "Submit my answers" }));
-    await user.click(screen.getByRole("button", { name: "Submit now" }));
-    expect(order).toEqual([]);
-    releaseSave();
+      expect(calls.at(-1)).toMatchObject({
+        method: "PATCH",
+        path: `${A}/my-answers`,
+        body: {
+          answers: {
+            customer_journey_1: 4,
+          },
+        },
+      });
 
-    expect(await screen.findByText(/Your answers are submitted/)).toBeInTheDocument();
-    expect(order).toEqual(["save", "submit"]);
-  });
+      expect(
+        await screen.findByText("Saved"),
+      ).toBeInTheDocument();
 
-  it("tells an investor that their role watches", async () => {
-    stubApi({
-      [`GET ${A}`]: fakeAssessment({ can_answer: false, can_manage: false, my_answers: null }),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-    });
+      expect(
+        screen.getByText(/1 of 4 questions answered/),
+      ).toBeInTheDocument();
 
-    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
+      // Submission is available from the review screen.
+      await user.click(
+        screen.getByRole("button", {
+          name: "Review all answers",
+        }),
+      );
 
-    expect(
-      await screen.findByText("Your role watches the assessment; it does not answer."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Submit my answers" })).not.toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole("button", {
+          name: "Submit my answers",
+        }),
+      ).toBeDisabled();
+    },
+  );
+
+  it(
+    "submits only after every question is answered and confirmation is given",
+    async () => {
+      const calls = stubApi({
+        [`GET ${A}`]: fakeAssessment({
+          my_answers: ALL,
+          my_status: "in_progress",
+        }),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`POST ${A}/my-answers/submit`]:
+          fakeAssessment({
+            my_answers: ALL,
+            my_status: "submitted",
+            my_submitted_at:
+              "2026-10-21T10:00:00Z",
+          }),
+      });
+
+      const user = userEvent.setup();
+
+      renderWithMe(
+        <QuestionnairePage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Review all answers",
+        }),
+      );
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Submit my answers",
+        }),
+      );
+
+      expect(
+        screen.getByText(
+          /You cannot change your answers afterwards/,
+        ),
+      ).toBeInTheDocument();
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Submit now",
+        }),
+      );
+
+      expect(calls.at(-1)).toMatchObject({
+        method: "POST",
+        path: `${A}/my-answers/submit`,
+      });
+
+      expect(
+        await screen.findByText(
+          /Your answers are submitted/,
+        ),
+      ).toBeInTheDocument();
+
+      // Return to focused view and verify answers are locked.
+      await user.click(
+        screen.getByRole("button", {
+          name: "Focused view",
+        }),
+      );
+
+      const question = screen.getByRole("group", {
+        name: "Do you understand the end-to-end experience?",
+      });
+
+      expect(
+        within(question).getByRole("radio", {
+          name: "3",
+        }),
+      ).toBeDisabled();
+    },
+  );
+
+  it(
+    "shows the facilitator team progress and starts agreeing answers",
+    async () => {
+      routerPush.mockClear();
+
+      const calls = stubApi({
+        [`GET ${A}`]: fakeAssessment({
+          submitted_count: 1,
+          participants: [
+            {
+              user_id: "u1",
+              name: "Mia Member",
+              answered: 4,
+              submitted_at:
+                "2026-10-21T09:00:00Z",
+            },
+            {
+              user_id: "u2",
+              name: "Late Larry",
+              answered: 1,
+              submitted_at: null,
+            },
+          ],
+        }),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`POST ${A}/consensus/begin`]: {},
+      });
+
+      const user = userEvent.setup();
+
+      renderWithMe(
+        <QuestionnairePage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      expect(
+        await screen.findByText("1 of 4 answered"),
+      ).toBeInTheDocument();
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Start agreeing answers",
+        }),
+      );
+
+      expect(
+        screen.getByText(
+          "Close answering with 1 submitted?",
+        ),
+      ).toBeInTheDocument();
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Yes, start agreeing",
+        }),
+      );
+
+      expect(calls.at(-1)).toMatchObject({
+        method: "POST",
+        path: `${A}/consensus/begin`,
+      });
+
+      expect(routerPush).toHaveBeenCalledWith(
+        `/readiness/${ID}/consensus`,
+      );
+    },
+  );
+
+  it(
+    "rolls back an answer when saving fails",
+    async () => {
+      stubApi({
+        [`GET ${A}`]: fakeAssessment(),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`PATCH ${A}/my-answers`]:
+          errorResponse(
+            "wrong_status",
+            "Answers are closed.",
+            409,
+          ),
+      });
+
+      const user = userEvent.setup();
+
+      renderWithMe(
+        <QuestionnairePage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      const question = await screen.findByRole(
+        "group",
+        {
+          name: "Do you understand the end-to-end experience?",
+        },
+      );
+
+      await user.click(
+        within(question).getByRole("radio", {
+          name: "4",
+        }),
+      );
+
+      expect(
+        await screen.findByText(/Not saved/),
+      ).toBeInTheDocument();
+
+      expect(
+        within(question).getByRole("radio", {
+          name: "4",
+        }),
+      ).not.toBeChecked();
+
+      expect(
+        screen.getByText(/0 of 4 questions answered/),
+      ).toBeInTheDocument();
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Review all answers",
+        }),
+      );
+
+      expect(
+        screen.getByRole("button", {
+          name: "Submit my answers",
+        }),
+      ).toBeDisabled();
+    },
+  );
+
+  it(
+    "submits only after the last answer has saved",
+    async () => {
+      let releaseSave: () => void = () => { };
+      const order: string[] = [];
+
+      const calls = stubApi({
+        [`GET ${A}`]: fakeAssessment({
+          my_answers: {
+            customer_journey_1: 3,
+            customer_journey_2: 4,
+            brand_magnetism_1: 3,
+          },
+        }),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`PATCH ${A}/my-answers`]: () =>
+          new Promise((resolve) => {
+            releaseSave = () => {
+              order.push("save");
+              resolve(
+                fakeAssessment({
+                  my_answers: ALL,
+                }),
+              );
+            };
+          }),
+        [`POST ${A}/my-answers/submit`]: () => {
+          order.push("submit");
+
+          return fakeAssessment({
+            my_answers: ALL,
+            my_submitted_at:
+              "2026-10-21T10:00:00Z",
+          });
+        },
+      });
+
+      const user = userEvent.setup();
+
+      renderWithMe(
+        <QuestionnairePage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      await screen.findByRole("group", {
+        name: "Do you understand the end-to-end experience?",
+      });
+
+      // Navigate to the fourth and final fixture question.
+      for (let index = 0; index < 3; index += 1) {
+        await user.click(
+          screen.getByRole("button", {
+            name: "Next question",
+          }),
+        );
+      }
+
+      const last = screen.getByRole("group", {
+        name: "Does the story resonate?",
+      });
+
+      await user.click(
+        within(last).getByRole("radio", {
+          name: "2",
+        }),
+      );
+
+      // Review mode is accessible while saving.
+      await user.click(
+        screen.getByRole("button", {
+          name: "Review all answers",
+        }),
+      );
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Submit my answers",
+        }),
+      );
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Submit now",
+        }),
+      );
+
+      // Confirm the save request started.
+      await vi.waitFor(() => {
+        expect(
+          calls.some(
+            (call) =>
+              call.method === "PATCH" &&
+              call.path === `${A}/my-answers`,
+          ),
+        ).toBe(true);
+      });
+
+      // Submission must wait until saving succeeds.
+      expect(order).toEqual([]);
+
+      releaseSave();
+
+      expect(
+        await screen.findByText(
+          /Your answers are submitted/,
+        ),
+      ).toBeInTheDocument();
+
+      expect(order).toEqual([
+        "save",
+        "submit",
+      ]);
+    },
+  );
+
+  it(
+    "tells an investor that their role is read-only",
+    async () => {
+      stubApi({
+        [`GET ${A}`]: fakeAssessment({
+          can_answer: false,
+          can_manage: false,
+          my_answers: null,
+        }),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+      });
+
+      renderWithMe(
+        <QuestionnairePage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      expect(
+        await screen.findByText(
+          "Your role watches the assessment; it does not answer.",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.queryByRole("button", {
+          name: "Submit my answers",
+        }),
+      ).not.toBeInTheDocument();
+
+      expect(
+        screen.queryByRole("button", {
+          name: "What does this mean?",
+        }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
-function fakeConsensus(agreed: Record<string, number | null> = {}): ConsensusOut {
-  const question = (id: string, dim: string, answers: number[]) => ({
+function fakeConsensus(
+  agreed: Record<string, number | null> = {},
+): ConsensusOut {
+  const question = (
+    id: string,
+    dim: string,
+    answers: number[],
+  ) => ({
     question_id: id,
     dimension_key: dim,
     answers: answers.map((answer, i) => ({
@@ -218,119 +562,276 @@ function fakeConsensus(agreed: Record<string, number | null> = {}): ConsensusOut
       name: ["Olive", "Mia"][i] ?? "X",
       answer,
     })),
-    mean: (answers.reduce((s, a) => s + a, 0) / answers.length).toFixed(2),
+    mean: (
+      answers.reduce((sum, value) => sum + value, 0) /
+      answers.length
+    ).toFixed(2),
     spread: Math.max(...answers) - Math.min(...answers),
-    wide_spread: Math.max(...answers) - Math.min(...answers) >= 2,
+    wide_spread:
+      Math.max(...answers) - Math.min(...answers) >= 2,
     agreed: agreed[id] ?? null,
     note: null,
   });
+
   return {
     assessment_id: ID,
     status: "consensus",
     participants: ["Olive", "Mia"],
-    agreed_count: Object.values(agreed).filter((v) => v !== null).length,
+    agreed_count: Object.values(agreed).filter(
+      (value) => value !== null,
+    ).length,
     question_count: 4,
     questions: [
-      question("customer_journey_1", "customer_journey", [2, 5]),
-      question("customer_journey_2", "customer_journey", [4, 4]),
-      question("brand_magnetism_1", "brand_magnetism", [3, 3]),
-      question("brand_magnetism_2", "brand_magnetism", [1, 2]),
+      question(
+        "customer_journey_1",
+        "customer_journey",
+        [2, 5],
+      ),
+      question(
+        "customer_journey_2",
+        "customer_journey",
+        [4, 4],
+      ),
+      question(
+        "brand_magnetism_1",
+        "brand_magnetism",
+        [3, 3],
+      ),
+      question(
+        "brand_magnetism_2",
+        "brand_magnetism",
+        [1, 2],
+      ),
     ],
   };
 }
 
 describe("ConsensusPage", () => {
-  it("shows everyone's answers with the mean and spread, and saves an agreed answer", async () => {
-    const calls = stubApi({
-      [`GET ${A}`]: fakeAssessment({ status: "consensus" }),
-      [`GET ${A}/consensus`]: fakeConsensus(),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`PATCH ${A}/consensus`]: fakeConsensus({ customer_journey_1: 4 }),
-    });
-    const user = userEvent.setup();
+  it(
+    "shows team answers, mean, spread and saves an agreed answer",
+    async () => {
+      const calls = stubApi({
+        [`GET ${A}`]: fakeAssessment({
+          status: "consensus",
+        }),
+        [`GET ${A}/consensus`]:
+          fakeConsensus(),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`PATCH ${A}/consensus`]:
+          fakeConsensus({
+            customer_journey_1: 4,
+          }),
+      });
 
-    renderWithMe(<ConsensusPage assessmentId={ID} />, fakeMe());
-    const question = await screen.findByRole("group", {
-      name: "Do you understand the end-to-end experience?",
-    });
-    expect(within(question).getByText("3.50")).toBeInTheDocument();
-    expect(within(question).getByText("Discuss: answers differ")).toBeInTheDocument();
-    await user.click(within(question).getByRole("radio", { name: "Agreed answer 4" }));
+      const user = userEvent.setup();
 
-    expect(calls.at(-1)).toMatchObject({
-      method: "PATCH",
-      path: `${A}/consensus`,
-      body: { answers: { customer_journey_1: 4 }, notes: {} },
-    });
-    expect(await screen.findByText("1 of 4 agreed")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Finalise the result" })).toBeDisabled();
-  });
+      renderWithMe(
+        <ConsensusPage assessmentId={ID} />,
+        fakeMe(),
+      );
 
-  it("finalises once every answer is agreed and opens the result", async () => {
-    routerPush.mockClear();
-    const calls = stubApi({
-      [`GET ${A}`]: fakeAssessment({ status: "consensus" }),
-      [`GET ${A}/consensus`]: fakeConsensus(ALL),
-      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
-      [`POST ${A}/finalise`]: {},
-    });
-    const user = userEvent.setup();
+      const question = await screen.findByRole(
+        "group",
+        {
+          name: "Do you understand the end-to-end experience?",
+        },
+      );
 
-    renderWithMe(<ConsensusPage assessmentId={ID} />, fakeMe());
-    await user.click(await screen.findByRole("button", { name: "Finalise the result" }));
-    await user.click(screen.getByRole("button", { name: "Finalise now" }));
+      expect(
+        within(question).getByText("3.50"),
+      ).toBeInTheDocument();
 
-    expect(calls.at(-1)).toMatchObject({ method: "POST", path: `${A}/finalise` });
-    expect(routerPush).toHaveBeenCalledWith(`/readiness/${ID}/result`);
-  });
+      expect(
+        within(question).getByText(
+          "Discuss: answers differ",
+        ),
+      ).toBeInTheDocument();
+
+      await user.click(
+        within(question).getByRole("radio", {
+          name: "Agreed answer 4",
+        }),
+      );
+
+      expect(calls.at(-1)).toMatchObject({
+        method: "PATCH",
+        path: `${A}/consensus`,
+        body: {
+          answers: {
+            customer_journey_1: 4,
+          },
+          notes: {},
+        },
+      });
+
+      expect(
+        await screen.findByText("1 of 4 agreed"),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByRole("button", {
+          name: "Finalise the result",
+        }),
+      ).toBeDisabled();
+    },
+  );
+
+  it(
+    "finalises after all answers are agreed and opens the result",
+    async () => {
+      routerPush.mockClear();
+
+      const calls = stubApi({
+        [`GET ${A}`]: fakeAssessment({
+          status: "consensus",
+        }),
+        [`GET ${A}/consensus`]:
+          fakeConsensus(ALL),
+        "GET /api/v1/readiness/question-set":
+          fakeQuestionSet(),
+        [`POST ${A}/finalise`]: {},
+      });
+
+      const user = userEvent.setup();
+
+      renderWithMe(
+        <ConsensusPage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Finalise the result",
+        }),
+      );
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Finalise now",
+        }),
+      );
+
+      expect(calls.at(-1)).toMatchObject({
+        method: "POST",
+        path: `${A}/finalise`,
+      });
+
+      expect(routerPush).toHaveBeenCalledWith(
+        `/readiness/${ID}/result`,
+      );
+    },
+  );
 });
 
 describe("ResultPage", () => {
-  it("shows the total, the band in the book's words, priorities and their next steps", async () => {
-    const result: ResultOut = {
-      assessment_id: ID,
-      question_set_version: 1,
-      total: 190,
-      total_maximum: 300,
-      band: {
-        key: "building_blocks",
-        name: "Building Blocks",
-        text: "You have a strong foundation but may need to focus on specific weaknesses.",
-      },
-      dimensions: [
-        { key: "customer_journey", name: "Customer Journey", order: 1, category: "customer_facing", score: 20, maximum: 25 },
-        { key: "channel_navigation", name: "Channel Navigation", order: 3, category: "customer_facing", score: 15, maximum: 25 },
-      ],
-      categories: [{ key: "customer_facing", name: "Customer-Facing Innovation", score: 85, maximum: 125 }],
-      priorities: [
-        {
-          rank: 1,
-          key: "channel_navigation",
-          name: "Channel Navigation",
-          score: 15,
-          maximum: 25,
-          next_steps: "If scoring low, streamline channels.",
+  it(
+    "shows the score, band, priorities and next steps",
+    async () => {
+      const result: ResultOut = {
+        assessment_id: ID,
+        question_set_version: 1,
+        total: 190,
+        total_maximum: 300,
+        band: {
+          key: "building_blocks",
+          name: "Building Blocks",
+          text:
+            "You have a strong foundation but may need to focus on specific weaknesses.",
         },
-      ],
-      strengths: [
-        { key: "customer_journey", name: "Customer Journey", order: 1, category: "customer_facing", score: 20, maximum: 25 },
-      ],
-      submitted_count: 3,
-      finalised_at: "2026-10-21T12:00:00Z",
-    };
-    stubApi({ [`GET ${A}/result`]: result });
+        dimensions: [
+          {
+            key: "customer_journey",
+            name: "Customer Journey",
+            order: 1,
+            category: "customer_facing",
+            score: 20,
+            maximum: 25,
+          },
+          {
+            key: "channel_navigation",
+            name: "Channel Navigation",
+            order: 3,
+            category: "customer_facing",
+            score: 15,
+            maximum: 25,
+          },
+        ],
+        categories: [
+          {
+            key: "customer_facing",
+            name: "Customer-Facing Innovation",
+            score: 85,
+            maximum: 125,
+          },
+        ],
+        priorities: [
+          {
+            rank: 1,
+            key: "channel_navigation",
+            name: "Channel Navigation",
+            score: 15,
+            maximum: 25,
+            next_steps:
+              "If scoring low, streamline channels.",
+          },
+        ],
+        strengths: [
+          {
+            key: "customer_journey",
+            name: "Customer Journey",
+            order: 1,
+            category: "customer_facing",
+            score: 20,
+            maximum: 25,
+          },
+        ],
+        submitted_count: 3,
+        finalised_at:
+          "2026-10-21T12:00:00Z",
+      };
 
-    renderWithMe(<ResultPage assessmentId={ID} />, fakeMe());
+      stubApi({
+        [`GET ${A}/result`]: result,
+      });
 
-    const total = await screen.findByRole("region", { name: "Total" });
-    expect(within(total).getByText("190")).toBeInTheDocument();
-    expect(within(total).getByText("Building Blocks")).toBeInTheDocument();
-    expect(
-      within(total).getByText(
-        "You have a strong foundation but may need to focus on specific weaknesses.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("If scoring low, streamline channels.")).toBeInTheDocument();
-    expect(screen.getByText(/answers from 3 people/)).toBeInTheDocument();
-  });
+      renderWithMe(
+        <ResultPage assessmentId={ID} />,
+        fakeMe(),
+      );
+
+      const total = await screen.findByRole(
+        "region",
+        { name: "Total" },
+      );
+
+      expect(
+        within(total).getByText("190"),
+      ).toBeInTheDocument();
+
+      expect(
+        within(total).getByText(
+          "Building Blocks",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        within(total).getByText(
+          "You have a strong foundation but may need to focus on specific weaknesses.",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          "If scoring low, streamline channels.",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          /answers from 3 people/,
+        ),
+      ).toBeInTheDocument();
+    },
+  );
 });

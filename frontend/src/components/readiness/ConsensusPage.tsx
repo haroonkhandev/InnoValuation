@@ -109,14 +109,14 @@ export function ConsensusPage({ assessmentId }: { assessmentId: string }) {
     setState((prev) =>
       prev.kind === "ready"
         ? {
-            ...prev,
-            consensus: {
-              ...prev.consensus,
-              questions: prev.consensus.questions.map((q) =>
-                q.question_id === questionId ? { ...q, agreed: value } : q,
-              ),
-            },
-          }
+          ...prev,
+          consensus: {
+            ...prev.consensus,
+            questions: prev.consensus.questions.map((q) =>
+              q.question_id === questionId ? { ...q, agreed: value } : q,
+            ),
+          },
+        }
         : prev,
     );
     persist({ answers: { [questionId]: value } });
@@ -252,11 +252,10 @@ function ConsensusRow({
             return (
               <label
                 key={value}
-                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
-                  chosen
-                    ? "border-primary bg-primary text-white"
-                    : "border-neutral-300 bg-white text-neutral-700 hover:border-primary"
-                }`}
+                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${chosen
+                  ? "border-primary bg-primary text-white"
+                  : "border-neutral-300 bg-white text-neutral-700 hover:border-primary"
+                  }`}
               >
                 <input
                   type="radio"

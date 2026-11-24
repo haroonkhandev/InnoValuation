@@ -62,8 +62,32 @@ describe("TeamPage", () => {
     const user = userEvent.setup();
 
     renderWithMe(<TeamPage />, fakeMe());
-    await user.selectOptions(await screen.findByLabelText("Role of Mia Member"), "admin");
-    expect(calls.at(-1)).toMatchObject({ method: "PATCH", body: { role: "admin" } });
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Role of Mia Member: Member",
+      }),
+    );
+
+    const roleMenu = screen.getByRole("listbox", {
+      name: "Role of Mia Member",
+    });
+
+    await user.click(
+      within(roleMenu).getByRole("option", {
+        name: "Admin",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Role of Mia Member: Admin",
+      }),
+    ).toBeInTheDocument();
+
+    expect(calls.at(-1)).toMatchObject({
+      method: "PATCH",
+      body: { role: "admin" },
+    });
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: "Cancel invitation?" }));
