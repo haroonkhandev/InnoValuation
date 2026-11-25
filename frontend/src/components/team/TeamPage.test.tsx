@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -63,8 +63,32 @@ describe("TeamPage", () => {
     const user = userEvent.setup();
 
     renderWithMe(<TeamPage />, fakeMe());
-    await user.selectOptions(await screen.findByLabelText("Role of Mia Member"), "admin");
-    expect(calls.at(-1)).toMatchObject({ method: "PATCH", body: { role: "admin" } });
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Role of Mia Member: Member",
+      }),
+    );
+
+    const roleMenu = screen.getByRole("listbox", {
+      name: "Role of Mia Member",
+    });
+
+    await user.click(
+      within(roleMenu).getByRole("option", {
+        name: "Admin",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Role of Mia Member: Admin",
+      }),
+    ).toBeInTheDocument();
+
+    expect(calls.at(-1)).toMatchObject({
+      method: "PATCH",
+      body: { role: "admin" },
+    });
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: "Cancel invitation?" }));
@@ -117,7 +141,7 @@ describe("TeamPage", () => {
       email: "noah@example.com",
       role: "member",
     });
-    let releaseRemove: () => void = () => {};
+    let releaseRemove: () => void = () => { };
     stubApi({
       "GET /api/v1/organisation": fakeOrganisation(),
       "GET /api/v1/organisation/members": [fakeMember(), mia, noah],
@@ -136,12 +160,22 @@ describe("TeamPage", () => {
     await user.click(within(miaRow).getByRole("button", { name: "Remove member?" }));
 
     expect(within(noahRow).getByRole("button", { name: "Remove" })).toBeDisabled();
-    expect(screen.getByLabelText("Role of Noah Member")).toBeDisabled();
-    releaseRemove();
+    expect(
+      screen.getByRole("button", {
+        name: /^Role of Noah Member:/,
+      })
+    ).toBeDisabled();
+    await act(async () => {
+      releaseRemove();
+    });
 
     await vi.waitFor(() => expect(screen.queryByText("Mia Member")).not.toBeInTheDocument());
     expect(within(noahRow).getByRole("button", { name: "Remove" })).toBeEnabled();
-    expect(screen.getByLabelText("Role of Noah Member")).toBeEnabled();
+    expect(
+      screen.getByRole("button", {
+        name: /^Role of Noah Member:/,
+      })
+    ).toBeEnabled();
   });
 
   it("closes the removal question again when the removal fails", async () => {

@@ -29,7 +29,11 @@ describe("AppShell", () => {
     expect(await screen.findByText("Page content")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Team" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Consultants" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Organisation")).toHaveDisplayValue("Acme");
+    expect(
+      screen.getByRole("button", {
+        name: "Organisation: Acme",
+      })
+    ).toBeInTheDocument();
   });
 
   it("marks the page the visitor is on in the navigation", async () => {
@@ -134,9 +138,16 @@ describe("AppShell", () => {
         <p>Page content</p>
       </AppShell>,
     );
-    await user.selectOptions(
-      await screen.findByLabelText("Organisation"),
-      "99999999-9999-9999-9999-999999999999",
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Organisation: Acme",
+      })
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Beta Ltd/,
+      })
     );
 
     expect(calls.at(-1)).toMatchObject({
@@ -144,7 +155,11 @@ describe("AppShell", () => {
       path: "/api/v1/me/active-organisation",
       body: { organisation_id: "99999999-9999-9999-9999-999999999999" },
     });
-    expect(await screen.findByLabelText("Organisation")).toHaveDisplayValue("Beta Ltd");
+    expect(
+      await screen.findByRole("button", {
+        name: "Organisation: Beta Ltd",
+      })
+    ).toBeInTheDocument();
   });
 
   it("signs out and goes to the sign-in page", async () => {
