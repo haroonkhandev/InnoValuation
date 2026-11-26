@@ -258,6 +258,38 @@ describe("TeamPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("drops the old team at once after a switch in the header", async () => {
+    const BETA = "99999999-9999-9999-9999-999999999999";
+    let current: "acme" | "beta" = "acme";
+    let releaseLoad: () => void = () => {};
+    stubApi({
+      "GET /api/v1/organisation": () =>
+        current === "acme"
+          ? fakeOrganisation()
+          : new Promise((resolve) => {
+              releaseLoad = () => resolve(fakeOrganisation({ id: BETA, name: "Beta Ltd" }));
+            }),
+      "GET /api/v1/organisation/members": () =>
+        current === "acme"
+          ? [fakeMember()]
+          : [fakeMember({ id: "55555555-5555-5555-5555-555555555555", name: "Bea Beta" })],
+      "GET /api/v1/organisation/invitations": [],
+    });
+    const me = fakeMe();
+
+    const { setMe } = renderWithMe(<TeamPage />, me);
+    expect(await screen.findByText("Olive Owner")).toBeInTheDocument();
+
+    current = "beta";
+    setMe({ ...me, active_organisation_id: BETA });
+
+    // While the new organisation loads, nothing of the old one is left to act on.
+    expect(await screen.findByText("Loading the team...")).toBeInTheDocument();
+    expect(screen.queryByText("Olive Owner")).not.toBeInTheDocument();
+    releaseLoad();
+    expect(await screen.findByText("Bea Beta")).toBeInTheDocument();
+  });
+
   it("asks for an organisation when none is active", () => {
     stubApi({});
 

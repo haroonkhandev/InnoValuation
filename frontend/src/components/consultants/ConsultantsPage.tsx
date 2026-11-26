@@ -480,6 +480,7 @@ function GrantsCard({
     busy: dateBusy,
     error: dateSubmitError,
     run: runDateSubmit,
+    clearError: clearDateSubmitError,
   } = useSubmit();
 
   const [busyId, setBusyId] = useState<string | null>(
@@ -621,6 +622,8 @@ function GrantsCard({
                           setEditingId(grant.id);
                           setNewEndDate("");
                           setDateError(null);
+                          // One dialog's failed save is not the next dialog's error.
+                          clearDateSubmitError();
                         }}
                       >
                         Change end date

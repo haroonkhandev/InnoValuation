@@ -139,9 +139,9 @@ export function VerifyEmail() {
           </svg>
         </div>
 
-        <h3 className="text-xl font-semibold text-[#10243B]">
+        <h2 className="text-xl font-semibold text-[#10243B]">
           Email confirmed
-        </h3>
+        </h2>
 
         <Alert tone="success">
           {state.message}
@@ -171,9 +171,9 @@ export function VerifyEmail() {
         className="space-y-5"
         noValidate
       >
-        <h3 className="text-lg font-semibold text-[#10243B]">
+        <h2 className="text-lg font-semibold text-[#10243B]">
           Choose a password
-        </h3>
+        </h2>
 
         <p className="text-sm leading-6 text-slate-600">
           Create a password to finish setting up
@@ -194,7 +194,6 @@ export function VerifyEmail() {
           placeholder="Create a secure password"
           required
           minLength={8}
-          hint="Use at least 8 characters."
           error={passwordError}
           value={password}
           onChange={(event) => {
@@ -229,9 +228,9 @@ export function VerifyEmail() {
       className="space-y-5"
       noValidate
     >
-      <h3 className="text-lg font-semibold text-[#10243B]">
+      <h2 className="text-lg font-semibold text-[#10243B]">
         Confirm your email
-      </h3>
+      </h2>
 
       {state.kind === "failed" && (
         <Alert tone="error">

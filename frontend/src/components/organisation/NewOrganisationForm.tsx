@@ -126,7 +126,7 @@ export function NewOrganisationForm() {
       </div>
 
       <div className="iv-os-layout">
-        <main className="iv-os-content">
+        <div className="iv-os-content">
           <form
             onSubmit={(event) => void handleSubmit(event)}
             noValidate
@@ -304,7 +304,7 @@ export function NewOrganisationForm() {
               You can update optional details after creation.
             </div>
           </form>
-        </main>
+        </div>
 
         <aside className="iv-os-sidebar">
           <div className="iv-os-sidebar-inner">

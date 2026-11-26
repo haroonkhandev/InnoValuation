@@ -29,6 +29,9 @@ export function OrgSwitcher() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when a switch lands. The trigger is disabled while busy and cannot take focus,
+  // so focus returns to it once it is enabled again rather than falling to the body.
+  const refocus = useRef(false);
 
   const memberships = me.memberships;
   const consulting = me.consultant_organisations;
@@ -71,6 +74,12 @@ export function OrgSwitcher() {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (busy || !refocus.current) return;
+    refocus.current = false;
+    triggerRef.current?.focus();
+  }, [busy]);
+
   if (options.length === 0) return null;
 
   async function choose(organisationId: string) {
@@ -94,7 +103,7 @@ export function OrgSwitcher() {
 
       update(updatedMe);
       setOpen(false);
-      triggerRef.current?.focus();
+      refocus.current = true;
     } catch (err) {
       setError(
         err instanceof ApiError

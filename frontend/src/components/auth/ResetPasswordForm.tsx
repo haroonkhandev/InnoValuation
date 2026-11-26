@@ -96,9 +96,9 @@ export function ResetPasswordForm() {
           </svg>
         </div>
 
-        <h3 className="text-xl font-semibold text-[#10243B]">
+        <h2 className="text-xl font-semibold text-[#10243B]">
           Password updated
-        </h3>
+        </h2>
 
         <Alert tone="success">
           {doneMessage}
@@ -157,7 +157,6 @@ export function ResetPasswordForm() {
         placeholder="Enter your new password"
         required
         minLength={8}
-        hint="Use at least 8 characters."
         error={fieldError}
         value={password}
         onChange={(event) => {

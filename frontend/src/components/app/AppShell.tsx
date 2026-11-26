@@ -74,6 +74,8 @@ function WorkspaceLink({
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
+      // On narrower desktops the header shows only the icon; the tooltip names it.
+      title={mobile ? undefined : item.label}
       onClick={onNavigate}
       className={[
         "iv-nav-link",
@@ -318,10 +320,6 @@ export function AppShell({
       }}
     >
       <div className="iv-workspace">
-        <a href="#main" className="iv-skip-link">
-          Skip to content
-        </a>
-
         <header
           ref={header}
           className="iv-app-header"
@@ -353,12 +351,16 @@ export function AppShell({
               aria-label="Main navigation"
               className="iv-desktop-nav"
             >
-              {navItems.map((item) => (
-                <WorkspaceLink
-                  key={item.href}
-                  item={item}
-                />
-              ))}
+              {/* Account is the avatar beside the actions; listing it here too would
+                  cost the room the other links need. The mobile menu keeps it. */}
+              {navItems
+                .filter((item) => item.href !== "/account")
+                .map((item) => (
+                  <WorkspaceLink
+                    key={item.href}
+                    item={item}
+                  />
+                ))}
             </nav>
 
             <div className="iv-header-actions iv-header-actions-fixed">
@@ -391,6 +393,7 @@ export function AppShell({
                   accountActive ? "iv-avatar-active" : "",
                 ].filter(Boolean).join(" ")}
                 aria-label="Account settings"
+                aria-current={accountActive ? "page" : undefined}
                 title={me.name}
                 onClick={() => setMobileOpen(false)}
               >

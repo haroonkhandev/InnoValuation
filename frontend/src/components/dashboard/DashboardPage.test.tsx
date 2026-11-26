@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   EMPTY_DASHBOARD,
   fakeAssessmentSummary,
+  fakeDashboard,
   fakeGrant,
   fakeInvitation,
   fakeMe,
@@ -169,7 +170,8 @@ describe("DashboardPage", () => {
     expect(
       screen.getByText("a member"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Invitations waiting")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pending invitations")).not.toBeInTheDocument();
+    expect(screen.queryByText("Consultant access")).not.toBeInTheDocument();
     expect(screen.queryByText("Getting started")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
@@ -226,6 +228,31 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("link", { name: "View results" })).toHaveAttribute(
       "href",
       "/readiness/77777777-7777-7777-7777-777777777777/result",
+    );
+  });
+
+  it("keeps the newer assessment and the ideas entry point once there are scores", async () => {
+    stubApi({
+      "GET /api/v1/organisation": fakeOrganisation(),
+      "GET /api/v1/organisation/members": [fakeMember()],
+      "GET /api/v1/organisation/invitations": [],
+      "GET /api/v1/organisation/consultants": [],
+      "GET /api/v1/readiness/assessments": [
+        fakeAssessmentSummary({ status: "collecting", my_status: "not_started" }),
+      ],
+      "GET /api/v1/ideas": [],
+      "GET /api/v1/dashboard": fakeDashboard(),
+    });
+
+    renderWithMe(<DashboardPage />, fakeMe());
+
+    // The scores are shown, and a second assessment under way still asks for answers.
+    expect(
+      await screen.findByRole("link", { name: "Continue assessment" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add an idea" })).toHaveAttribute(
+      "href",
+      "/ideas/new",
     );
   });
 

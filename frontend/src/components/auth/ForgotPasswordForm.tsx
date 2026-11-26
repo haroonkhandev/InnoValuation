@@ -63,9 +63,9 @@ export function ForgotPasswordForm() {
           </svg>
         </div>
 
-        <h3 className="text-xl font-semibold text-[#10243B]">
+        <h2 className="text-xl font-semibold text-[#10243B]">
           Check your inbox
-        </h3>
+        </h2>
 
         <Alert tone="success">
           {sentMessage}

@@ -365,6 +365,9 @@ export function TeamPage() {
     let cancelled = false;
 
     async function load() {
+      // Drop the previous organisation's rows at once: the team endpoints act on the
+      // session's active organisation, so stale controls would act on the new one.
+      setState({ kind: "loading" });
       try {
         const org = await getOrganisation();
         const members =
@@ -446,7 +449,7 @@ export function TeamPage() {
   const pending = invitations.filter((i) => !i.expired).length;
 
   return (
-    <div className="mx-auto max-w-[1320px] space-y-9 pb-16 font-sans">
+    <div className="iv-team-page mx-auto max-w-[1320px] space-y-9 pb-16 font-sans">
       <TeamHero
         org={org}
         members={members}
@@ -504,9 +507,9 @@ export function TeamPage() {
               />
               <StatCard
                 icon={<UserRoundCheck size={21} strokeWidth={1.7} />}
-                label="Active members"
-                value={members.length}
-                description="Joined organisation members"
+                label="Owners and admins"
+                value={members.filter((m) => canManage(m.role)).length}
+                description="Can manage the team"
               />
             </div>
           </section>

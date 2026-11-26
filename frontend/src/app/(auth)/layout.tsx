@@ -85,12 +85,12 @@ function BrandPanel() {
           INNOVATION INTELLIGENCE
         </div>
 
-        <h1 className="max-w-[590px] text-[clamp(2rem,3.2vw,3.5rem)] leading-[1.12] font-semibold tracking-[-0.035em]">
+        <p className="max-w-[590px] text-[clamp(2rem,3.2vw,3.5rem)] leading-[1.12] font-semibold tracking-[-0.035em] text-balance">
           Great ideas deserve{" "}
           <span className="text-[#DAB56D]">
             measurable impact.
           </span>
-        </h1>
+        </p>
 
         <p className="mt-5 max-w-[510px] text-[15px] leading-7 text-[#C5D0DC]">
           Understand your innovation potential, evaluate
@@ -104,9 +104,9 @@ function BrandPanel() {
               <p className="text-[10px] font-semibold tracking-[0.12em] text-[#AEBFD0]">
                 INNOVATION FRAMEWORK
               </p>
-              <h2 className="mt-1.5 text-lg font-semibold text-white">
+              <p className="mt-1.5 text-lg font-semibold text-white">
                 Discover your potential
-              </h2>
+              </p>
             </div>
 
             <span className="shrink-0 rounded-lg border border-[#DAB56D]/25 bg-[#DAB56D]/10 px-3 py-2 text-xs font-semibold text-[#E2BC77]">
@@ -193,9 +193,10 @@ function AuthPanel({
               YOUR INNOVATION WORKSPACE
             </p>
 
-            <h2 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight text-[#10243B] sm:text-3xl">
+            {/* The page's h1 on every width; the forms' own headings are h2. */}
+            <h1 className="mt-2 text-[28px] leading-tight font-semibold tracking-tight text-[#10243B] sm:text-3xl">
               {heading.title}
-            </h2>
+            </h1>
 
             <p className="mt-2 text-sm leading-6 text-[#64748B]">
               {heading.subtitle}
@@ -245,7 +246,7 @@ export default function AuthLayout({
   return (
     <main
       id="main"
-      className="flex min-h-dvh w-full flex-col bg-white lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-y-auto"
+      className="iv-auth-layout flex min-h-dvh w-full flex-col bg-white lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-y-auto"
     >
       <MobileBrand />
       <BrandPanel />

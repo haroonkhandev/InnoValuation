@@ -66,6 +66,19 @@ describe("ReadinessListPage", () => {
     expect(screen.getByRole("button", { name: "Start a readiness assessment" })).toBeInTheDocument();
   });
 
+  it("asks to continue only someone who has answers to give", async () => {
+    stubApi({
+      "GET /api/v1/readiness/assessments": [
+        fakeAssessmentSummary({ status: "collecting", my_status: "submitted" }),
+      ],
+    });
+
+    renderWithMe(<ReadinessListPage />, fakeMe());
+
+    expect(await screen.findByRole("link", { name: "View the assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Continue|Answer the questions/ })).not.toBeInTheDocument();
+  });
+
   it("reloads the list, from a loading state, after a switch in the header", async () => {
     const BETA = "99999999-9999-9999-9999-999999999999";
     let releaseLoad: () => void = () => { };
@@ -321,6 +334,68 @@ describe("QuestionnairePage", () => {
     expect(order).toEqual(["save", "submit"]);
   });
 
+  it("stops the submit, and says why, when the last save fails while it waits", async () => {
+    let failSave: () => void = () => { };
+    const calls = stubApi({
+      [`GET ${A}`]: fakeAssessment({
+        my_answers: { customer_journey_1: 3, customer_journey_2: 4, brand_magnetism_1: 3 },
+      }),
+      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
+      [`PATCH ${A}/my-answers`]: () =>
+        new Promise((resolve) => {
+          failSave = () => resolve(errorResponse("internal_error", "Server error.", 500));
+        }),
+    });
+    const user = userEvent.setup();
+
+    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
+    await user.click(await screen.findByRole("button", { name: "Review all answers" }));
+    await user.click(screen.getByRole("button", { name: "Go to first unanswered question" }));
+    const last = await screen.findByRole("group", { name: "Does the story resonate?" });
+    await user.click(within(last).getByRole("radio", { name: "2" }));
+    await user.click(screen.getByRole("button", { name: "Review all answers" }));
+
+    await user.click(screen.getByRole("button", { name: "Submit my answers" }));
+    await user.click(screen.getByRole("button", { name: "Submit now" }));
+    failSave();
+
+    expect(await screen.findByText(
+      "Some answers were not saved. Choose the marked answers again.",
+    )).toBeInTheDocument();
+    expect(calls.some((c) => c.path === `${A}/my-answers/submit`)).toBe(false);
+  });
+
+  it("lets a person submit the answer a failed save went back to", async () => {
+    const calls = stubApi({
+      [`GET ${A}`]: fakeAssessment({ my_answers: ALL, my_status: "in_progress" }),
+      "GET /api/v1/readiness/question-set": fakeQuestionSet(),
+      [`PATCH ${A}/my-answers`]: errorResponse("internal_error", "Server error.", 500),
+      [`POST ${A}/my-answers/submit`]: fakeAssessment({
+        my_answers: ALL,
+        my_status: "submitted",
+        my_submitted_at: "2026-10-21T10:00:00Z",
+      }),
+    });
+    const user = userEvent.setup();
+
+    renderWithMe(<QuestionnairePage assessmentId={ID} />, fakeMe());
+    const first = await screen.findByRole("group", {
+      name: "Do you understand the end-to-end experience?",
+    });
+    // The change fails, so the saved 3 comes back. Choosing 3 again does nothing, so the
+    // person must still be able to submit it.
+    await user.click(within(first).getByRole("radio", { name: "4" }));
+    expect(await screen.findByText("Not saved. Choose your answer again.")).toBeInTheDocument();
+    expect(within(first).getByRole("radio", { name: "3" })).toBeChecked();
+
+    await user.click(screen.getByRole("button", { name: "Review all answers" }));
+    await user.click(screen.getByRole("button", { name: "Submit my answers" }));
+    await user.click(screen.getByRole("button", { name: "Submit now" }));
+
+    expect(await screen.findByText(/Your answers are submitted/)).toBeInTheDocument();
+    expect(calls.at(-1)).toMatchObject({ method: "POST", path: `${A}/my-answers/submit` });
+  });
+
   it("keeps a failed answer marked after a later save works", async () => {
     let saves = 0;
     stubApi({
@@ -405,7 +480,7 @@ describe("QuestionnairePage", () => {
 
     await user.click(
       within(failedQuestion).getByRole("radio", {
-        name: "5",
+        name: "5, Strongly Agree",
       })
     );
 

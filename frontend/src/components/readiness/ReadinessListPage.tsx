@@ -53,6 +53,16 @@ function StatusIcon({ status }: {
   return <ClipboardCheck size={14} />;
 }
 
+/** What this person can do with the assessment, as the row's and the hero's link text. */
+function actionLabel(a: AssessmentSummaryOut, manage: boolean): string {
+  if (a.status === "final") return "See the result";
+  if (a.status === "consensus" && manage) return "Agree the answers";
+  if (a.my_status && a.my_status !== "submitted" && a.status === "collecting") {
+    return "Answer the questions";
+  }
+  return "Open";
+}
+
 function AssessmentCard({
   assessment,
   manage,
@@ -65,15 +75,7 @@ function AssessmentCard({
   const a = assessment;
   const isFinal = a.status === "final";
 
-  const actionLabel = isFinal
-    ? "See the result"
-    : a.status === "consensus" && manage
-      ? "Agree the answers"
-      : a.my_status &&
-        a.my_status !== "submitted" &&
-        a.status === "collecting"
-        ? "Answer the questions"
-        : "Open";
+  const action = actionLabel(a, manage);
 
   const personalStatus = isFinal && a.total !== null
     ? `${a.total} out of 300 · ${a.band_name ?? ""}`
@@ -135,7 +137,7 @@ function AssessmentCard({
         href={assessmentHref(a, manage)}
         className="iv-rd-assessment-link"
       >
-        {actionLabel}
+        {action}
         <ArrowUpRight size={17} aria-hidden="true" />
       </Link>
     </li>
@@ -225,6 +227,9 @@ export function ReadinessListPage() {
 
   const { assessments } = state;
   const open = assessments.find((a) => a.status !== "final");
+  // Only someone with something to do is asked to continue; watchers, and members who
+  // have already submitted, are offered a look instead.
+  const openAction = open ? actionLabel(open, manage) : null;
   const completed = assessments.filter(
     (a) => a.status === "final",
   ).length;
@@ -286,7 +291,7 @@ export function ReadinessListPage() {
               className="iv-rd-hero-action"
               href={assessmentHref(open, manage)}
             >
-              Continue assessment
+              {openAction === "Open" ? "View the assessment" : openAction}
               <ArrowRight size={18} />
             </Link>
           )}

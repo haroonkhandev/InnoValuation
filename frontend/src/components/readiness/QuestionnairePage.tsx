@@ -75,6 +75,8 @@ export function QuestionnairePage({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
   const failedRef = useRef(new Set<string>());
+  // Counts every failed save, so a submit can tell whether one failed while it waited.
+  const failures = useRef(0);
   const submit = useSubmit();
 
   useEffect(() => {
@@ -157,7 +159,10 @@ export function QuestionnairePage({
     (_, index) => questions.scale.min + index,
   );
 
-  const canSubmit = allAnswered && failed.length === 0 && !submit.busy;
+  // A failed save puts back what the server holds, so the answers shown are the ones
+  // saved and a marked question does not block the submit. (Blocking would strand anyone
+  // who wants the answer it went back to: choosing a checked radio again does nothing.)
+  const canSubmit = allAnswered && !submit.busy;
 
   function navigate(index: number) {
     if (index < 0 || index >= total) return;
@@ -208,6 +213,7 @@ export function QuestionnairePage({
         },
         (err: unknown) => {
           pending.current -= 1;
+          failures.current += 1;
 
           failedRef.current.add(questionId);
           setFailed(Array.from(failedRef.current));
@@ -232,11 +238,16 @@ export function QuestionnairePage({
   }
 
   async function waitForSaves() {
+    const failuresBefore = failures.current;
     await queue.current;
 
-    if (failedRef.current.size > 0 || pending.current > 0) {
-      throw new Error(
+    // A save that failed while the submit waited changed an answer the person has not
+    // seen yet: stop, so they can look at it before the answers are locked.
+    if (failures.current > failuresBefore) {
+      throw new ApiError(
+        "answers_not_saved",
         "Some answers were not saved. Choose the marked answers again.",
+        0,
       );
     }
   }
@@ -746,7 +757,7 @@ export function QuestionnairePage({
                             onChange={() =>
                               choose(current.question.id, value)
                             }
-                            aria-label={String(value)}
+                            aria-label={label ? `${value}, ${label}` : String(value)}
                             title={label || undefined}
                           />
 

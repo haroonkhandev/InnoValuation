@@ -49,7 +49,9 @@ describe("AppShell", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Account" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Account settings" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("hides the manage links from a plain member", async () => {
@@ -155,11 +157,11 @@ describe("AppShell", () => {
       path: "/api/v1/me/active-organisation",
       body: { organisation_id: "99999999-9999-9999-9999-999999999999" },
     });
-    expect(
-      await screen.findByRole("button", {
-        name: "Organisation: Beta Ltd",
-      })
-    ).toBeInTheDocument();
+    const trigger = await screen.findByRole("button", {
+      name: "Organisation: Beta Ltd",
+    });
+    // Focus goes back to the switcher, not to the page body.
+    await vi.waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("signs out and goes to the sign-in page", async () => {

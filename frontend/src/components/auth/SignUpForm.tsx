@@ -94,9 +94,9 @@ export function SignUpForm() {
           </svg>
         </div>
 
-        <h3 className="text-xl font-semibold text-[#10243B]">
+        <h2 className="text-xl font-semibold text-[#10243B]">
           Check your inbox
-        </h3>
+        </h2>
 
         <Alert tone="success">
           {sentMessage}
@@ -175,7 +175,6 @@ export function SignUpForm() {
         placeholder="Create a secure password"
         required
         minLength={8}
-        hint="Use at least 8 characters."
         error={fieldErrors.password}
         value={password}
         onChange={(event) => {
@@ -208,25 +207,7 @@ export function SignUpForm() {
           htmlFor="auth-accepted-terms"
           className="text-xs leading-6 text-[#52677D]"
         >
-          I agree to the{" "}
-          <Link
-            href="/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={authLinkClass}
-          >
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link
-            href="/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={authLinkClass}
-          >
-            Privacy Policy
-          </Link>
-          .
+          I accept the terms of service and the privacy policy.
         </label>
       </div>
 

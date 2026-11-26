@@ -18,6 +18,9 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+
+import { MobileMenu } from "@/components/landing/MobileMenu";
+
 import "./landing.css";
 
 const FEATURES: {
@@ -135,7 +138,7 @@ function Header() {
         </nav>
 
 
-        <details className="landing-mobile-menu">
+        <MobileMenu className="landing-mobile-menu">
           <summary
             className="landing-mobile-menu-trigger"
             aria-label="Toggle navigation menu"
@@ -165,7 +168,7 @@ function Header() {
               <span aria-hidden="true">↗</span>
             </Link>
           </nav>
-        </details>
+        </MobileMenu>
 
         <div className="landing-header-actions">
           <Link href="/sign-in" className="landing-signin">
@@ -632,8 +635,6 @@ function Footer() {
 
         <nav aria-label="Footer navigation">
           <Link href="/sign-in">Sign in</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy">Privacy</Link>
           <Link href="/health">System health</Link>
         </nav>
 

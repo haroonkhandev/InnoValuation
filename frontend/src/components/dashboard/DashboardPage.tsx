@@ -945,6 +945,18 @@ export function DashboardPage() {
         }
       />
 
+      {/* The fallbacks above show only while there is no score. Once there is one, a
+          newer assessment still needs its card to be answered, and ideas their entry point. */}
+      {state.dashboard.readiness && latest?.status !== "final" && (
+        <ReadinessCard latest={latest} manage={manage} />
+      )}
+      {state.dashboard.iq && (
+        <IdeasCard
+          ideas={state.ideas}
+          canAdd={org.role !== "investor" && org.status === "active"}
+        />
+      )}
+
       <section>
         <SectionHeading
           eyebrow="WORKSPACE PROGRESS"

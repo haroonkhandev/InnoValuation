@@ -230,7 +230,7 @@ export function OrganisationSettings() {
       </div>
 
       <div className="iv-os-layout">
-        <main className="iv-os-content">
+        <div className="iv-os-content">
           <SettingsForm
             key={org.id}
             org={org}
@@ -242,7 +242,7 @@ export function OrganisationSettings() {
               )
             }
           />
-        </main>
+        </div>
 
         <aside className="iv-os-sidebar">
           <div className="iv-os-sidebar-inner">
