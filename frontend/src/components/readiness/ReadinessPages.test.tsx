@@ -9,6 +9,7 @@ import {
   fakeAssessment,
   fakeAssessmentSummary,
   fakeMe,
+  fakeNoAdvice,
   fakeQuestionSet,
   stubApi,
 } from "@/test/api";
@@ -643,6 +644,9 @@ describe("QuestionnairePage", () => {
       await screen.findByText("Your role watches the assessment; it does not answer."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit my answers" })).not.toBeInTheDocument();
+    // A role that only watches has no progress of its own to show.
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByText(/questions answered/)).not.toBeInTheDocument();
   });
 });
 
@@ -817,41 +821,45 @@ describe("ConsensusPage", () => {
   });
 });
 
+function fakeResult(): ResultOut {
+  return {
+    assessment_id: ID,
+    question_set_version: 1,
+    total: 190,
+    total_maximum: 300,
+    band: {
+      key: "building_blocks",
+      name: "Building Blocks",
+      text: "You have a strong foundation but may need to focus on specific weaknesses.",
+    },
+    dimensions: [
+      { key: "customer_journey", name: "Customer Journey", order: 1, category: "customer_facing", score: 20, maximum: 25 },
+      { key: "channel_navigation", name: "Channel Navigation", order: 3, category: "customer_facing", score: 15, maximum: 25 },
+    ],
+    categories: [{ key: "customer_facing", name: "Customer-Facing Innovation", score: 85, maximum: 125 }],
+    compass: null,
+    priorities: [
+      {
+        rank: 1,
+        key: "channel_navigation",
+        name: "Channel Navigation",
+        score: 15,
+        maximum: 25,
+        next_steps: "If scoring low, streamline channels.",
+      },
+    ],
+    strengths: [
+      { key: "customer_journey", name: "Customer Journey", order: 1, category: "customer_facing", score: 20, maximum: 25 },
+    ],
+    submitted_count: 3,
+    finalised_at: "2026-10-21T12:00:00Z",
+  };
+}
+
 describe("ResultPage", () => {
   it("shows the total, the band in the book's words, priorities and their next steps", async () => {
-    const result: ResultOut = {
-      assessment_id: ID,
-      question_set_version: 1,
-      total: 190,
-      total_maximum: 300,
-      band: {
-        key: "building_blocks",
-        name: "Building Blocks",
-        text: "You have a strong foundation but may need to focus on specific weaknesses.",
-      },
-      dimensions: [
-        { key: "customer_journey", name: "Customer Journey", order: 1, category: "customer_facing", score: 20, maximum: 25 },
-        { key: "channel_navigation", name: "Channel Navigation", order: 3, category: "customer_facing", score: 15, maximum: 25 },
-      ],
-      categories: [{ key: "customer_facing", name: "Customer-Facing Innovation", score: 85, maximum: 125 }],
-      compass: null,
-      priorities: [
-        {
-          rank: 1,
-          key: "channel_navigation",
-          name: "Channel Navigation",
-          score: 15,
-          maximum: 25,
-          next_steps: "If scoring low, streamline channels.",
-        },
-      ],
-      strengths: [
-        { key: "customer_journey", name: "Customer Journey", order: 1, category: "customer_facing", score: 20, maximum: 25 },
-      ],
-      submitted_count: 3,
-      finalised_at: "2026-10-21T12:00:00Z",
-    };
-    stubApi({ [`GET ${A}/result`]: result });
+    const result = fakeResult();
+    stubApi({ [`GET ${A}/result`]: result, [`GET ${A}/advice`]: fakeNoAdvice() });
 
     renderWithMe(<ResultPage assessmentId={ID} />, fakeMe());
 
@@ -865,6 +873,15 @@ describe("ResultPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("If scoring low, streamline channels.")).toBeInTheDocument();
     expect(screen.getByText(/answers from 3 people/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Get AI advice" })).toBeInTheDocument();
+  });
+
+  it("leaves the AI advice out while the server has no AI key", async () => {
+    const calls = stubApi({ [`GET ${A}/result`]: fakeResult() });
+    renderWithMe(<ResultPage assessmentId={ID} />, fakeMe({ ai_enabled: false }));
+    await screen.findByRole("region", { name: "Total" });
+    expect(screen.queryByRole("heading", { name: "AI advice" })).not.toBeInTheDocument();
+    expect(calls.map((c) => c.path)).toEqual([`${A}/result`]);
   });
 
   it("shows the permission message when the result is not for this person", async () => {
